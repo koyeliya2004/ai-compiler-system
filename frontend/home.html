@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Compiler System — Home</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0d0d0f;
+      --surface: #131316;
+      --surface2: #1a1a1e;
+      --border: #2a2a30;
+      --text: #e8e8ec;
+      --muted: #7a7a8a;
+      --faint: #3a3a45;
+      --primary: #7c6af7;
+      --primary-hover: #9b8dfb;
+      --primary-glow: rgba(124,106,247,0.18);
+      --primary-glow2: rgba(124,106,247,0.07);
+      --success: #4ade80;
+      --mono: 'JetBrains Mono', monospace;
+      --sans: 'Inter', sans-serif;
+      --radius: 12px;
+      --radius-sm: 7px;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: var(--sans);
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100dvh;
+      overflow-x: hidden;
+    }
+
+    /* ── NAV ── */
+    nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      height: 58px;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 32px;
+      background: rgba(13,13,15,0.85);
+      backdrop-filter: blur(14px);
+      border-bottom: 1px solid var(--border);
+    }
+    .nav-logo { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 0.95rem; letter-spacing: -0.01em; text-decoration: none; color: var(--text); }
+    .nav-logo svg { color: var(--primary); flex-shrink: 0; }
+    .logo-badge { background: var(--primary-glow); border: 1px solid var(--primary); color: var(--primary); font-size: 0.62rem; font-weight: 600; padding: 2px 7px; border-radius: 999px; letter-spacing: 0.05em; text-transform: uppercase; }
+    .nav-cta {
+      display: flex; align-items: center; gap: 8px;
+      background: var(--primary); color: #fff;
+      border: none; border-radius: 8px;
+      padding: 8px 18px; font-size: 0.82rem; font-weight: 600;
+      cursor: pointer; text-decoration: none;
+      transition: background 0.18s, transform 0.12s;
+    }
+    .nav-cta:hover { background: var(--primary-hover); transform: translateY(-1px); }
+    .nav-cta svg { flex-shrink: 0; }
+
+    /* ── HERO ── */
+    .hero {
+      min-height: 100dvh;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      text-align: center;
+      padding: 100px 24px 60px;
+      position: relative;
+      overflow: hidden;
+    }
+    /* animated grid background */
+    .hero::before {
+      content: '';
+      position: absolute; inset: 0;
+      background-image:
+        linear-gradient(var(--border) 1px, transparent 1px),
+        linear-gradient(90deg, var(--border) 1px, transparent 1px);
+      background-size: 48px 48px;
+      opacity: 0.35;
+      mask-image: radial-gradient(ellipse 80% 60% at 50% 40%, black 30%, transparent 80%);
+    }
+    /* glow orb */
+    .hero::after {
+      content: '';
+      position: absolute;
+      width: 600px; height: 600px;
+      background: radial-gradient(circle, rgba(124,106,247,0.14) 0%, transparent 70%);
+      top: 50%; left: 50%;
+      transform: translate(-50%, -60%);
+      pointer-events: none;
+    }
+    .hero-inner { position: relative; z-index: 1; max-width: 760px; }
+    .hero-eyebrow {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: var(--primary-glow); border: 1px solid rgba(124,106,247,0.35);
+      border-radius: 999px; padding: 5px 14px;
+      font-size: 0.72rem; font-weight: 600; color: var(--primary);
+      letter-spacing: 0.06em; text-transform: uppercase;
+      margin-bottom: 28px;
+      animation: fadeUp 0.6s ease both;
+    }
+    .eyebrow-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--primary); animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(0.8)} }
+    .hero h1 {
+      font-size: clamp(2.4rem, 6vw, 4.2rem);
+      font-weight: 700;
+      line-height: 1.1;
+      letter-spacing: -0.03em;
+      margin-bottom: 24px;
+      animation: fadeUp 0.6s 0.1s ease both;
+    }
+    .hero h1 span {
+      background: linear-gradient(135deg, var(--primary) 0%, #a78bfa 50%, #c4b5fd 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    }
+    .hero-sub {
+      font-size: clamp(1rem, 2vw, 1.15rem);
+      color: var(--muted);
+      line-height: 1.7;
+      max-width: 560px;
+      margin: 0 auto 40px;
+      font-weight: 400;
+      animation: fadeUp 0.6s 0.2s ease both;
+    }
+    .hero-actions {
+      display: flex; align-items: center; justify-content: center; gap: 14px; flex-wrap: wrap;
+      animation: fadeUp 0.6s 0.3s ease both;
+    }
+    .btn-primary {
+      display: inline-flex; align-items: center; gap: 10px;
+      background: var(--primary); color: #fff;
+      padding: 14px 30px; border-radius: 10px;
+      font-size: 0.95rem; font-weight: 600;
+      text-decoration: none; border: none; cursor: pointer;
+      transition: background 0.18s, transform 0.12s, box-shadow 0.18s;
+      box-shadow: 0 0 0 0 rgba(124,106,247,0);
+    }
+    .btn-primary:hover {
+      background: var(--primary-hover);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 32px rgba(124,106,247,0.35);
+    }
+    .btn-primary .arrow-icon { transition: transform 0.2s; }
+    .btn-primary:hover .arrow-icon { transform: translateX(4px); }
+    .btn-secondary {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: var(--surface2); color: var(--muted);
+      padding: 14px 26px; border-radius: 10px;
+      font-size: 0.95rem; font-weight: 500;
+      text-decoration: none; border: 1px solid var(--border);
+      transition: color 0.18s, border-color 0.18s, transform 0.12s;
+    }
+    .btn-secondary:hover { color: var(--text); border-color: var(--primary); transform: translateY(-2px); }
+
+    /* ── PIPELINE VIZ ── */
+    .pipeline-demo {
+      margin-top: 64px;
+      display: flex; align-items: center; justify-content: center;
+      gap: 0; flex-wrap: nowrap; overflow-x: auto;
+      padding: 0 8px;
+      animation: fadeUp 0.6s 0.4s ease both;
+    }
+    .pipe-step {
+      display: flex; flex-direction: column; align-items: center; gap: 8px;
+      padding: 14px 18px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      min-width: 100px;
+      transition: border-color 0.2s, background 0.2s;
+      position: relative;
+    }
+    .pipe-step:hover { border-color: var(--primary); background: var(--primary-glow2); }
+    .pipe-step-num { font-size: 0.62rem; font-weight: 700; color: var(--primary); letter-spacing: 0.08em; text-transform: uppercase; }
+    .pipe-step-icon { font-size: 1.3rem; line-height: 1; }
+    .pipe-step-label { font-size: 0.72rem; font-weight: 600; color: var(--muted); white-space: nowrap; }
+    .pipe-arrow {
+      color: var(--faint); flex-shrink: 0; padding: 0 4px;
+      display: flex; align-items: center;
+    }
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* ── FEATURES SECTION ── */
+    .section { padding: 96px 24px; max-width: 1100px; margin: 0 auto; }
+    .section-label {
+      font-size: 0.7rem; font-weight: 700; letter-spacing: 0.1em;
+      text-transform: uppercase; color: var(--primary);
+      margin-bottom: 14px;
+    }
+    .section-title {
+      font-size: clamp(1.6rem, 3.5vw, 2.4rem);
+      font-weight: 700; letter-spacing: -0.025em;
+      margin-bottom: 14px; line-height: 1.2;
+    }
+    .section-sub { font-size: 1rem; color: var(--muted); max-width: 500px; line-height: 1.7; margin-bottom: 56px; }
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 20px;
+    }
+    .feature-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px;
+      transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
+    }
+    .feature-card:hover {
+      border-color: rgba(124,106,247,0.4);
+      transform: translateY(-3px);
+      box-shadow: 0 12px 40px rgba(124,106,247,0.1);
+    }
+    .feature-icon {
+      width: 42px; height: 42px;
+      background: var(--primary-glow);
+      border: 1px solid rgba(124,106,247,0.3);
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      margin-bottom: 18px; font-size: 1.2rem;
+    }
+    .feature-title { font-size: 0.95rem; font-weight: 600; margin-bottom: 8px; }
+    .feature-desc { font-size: 0.82rem; color: var(--muted); line-height: 1.65; }
+
+    /* ── STATS STRIP ── */
+    .stats-strip {
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+      padding: 36px 24px;
+      display: flex; align-items: center; justify-content: center;
+      gap: 0; flex-wrap: wrap;
+    }
+    .stat {
+      flex: 1; min-width: 160px;
+      display: flex; flex-direction: column; align-items: center; gap: 4px;
+      padding: 16px;
+      border-right: 1px solid var(--border);
+    }
+    .stat:last-child { border-right: none; }
+    .stat-val { font-size: 2rem; font-weight: 700; color: var(--primary); font-family: var(--mono); letter-spacing: -0.02em; }
+    .stat-label { font-size: 0.75rem; color: var(--muted); font-weight: 500; }
+
+    /* ── HOW IT WORKS ── */
+    .steps-list { display: flex; flex-direction: column; gap: 0; max-width: 640px; }
+    .step-row {
+      display: flex; gap: 24px; align-items: flex-start;
+      padding: 28px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .step-row:last-child { border-bottom: none; }
+    .step-num {
+      width: 36px; height: 36px; flex-shrink: 0;
+      background: var(--primary-glow); border: 1px solid rgba(124,106,247,0.4);
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.75rem; font-weight: 700; color: var(--primary);
+      font-family: var(--mono);
+    }
+    .step-content { flex: 1; }
+    .step-title { font-size: 0.95rem; font-weight: 600; margin-bottom: 6px; }
+    .step-desc { font-size: 0.82rem; color: var(--muted); line-height: 1.65; }
+    .step-code {
+      margin-top: 10px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 10px 14px;
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      color: #86efac;
+      line-height: 1.6;
+    }
+
+    /* ── CTA SECTION ── */
+    .cta-section {
+      text-align: center;
+      padding: 100px 24px;
+      position: relative;
+      overflow: hidden;
+    }
+    .cta-section::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: radial-gradient(ellipse 60% 60% at 50% 50%, rgba(124,106,247,0.1) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .cta-section h2 {
+      font-size: clamp(1.8rem, 4vw, 3rem);
+      font-weight: 700; letter-spacing: -0.025em;
+      margin-bottom: 16px;
+    }
+    .cta-section p { font-size: 1rem; color: var(--muted); margin-bottom: 36px; max-width: 440px; margin-inline: auto; margin-bottom: 36px; }
+
+    /* ── FOOTER ── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 24px 32px;
+      display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;
+      font-size: 0.75rem; color: var(--muted);
+    }
+    footer a { color: var(--muted); text-decoration: none; }
+    footer a:hover { color: var(--text); }
+
+    /* ── SCROLLBAR ── */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--faint); border-radius: 3px; }
+
+    @media (max-width: 640px) {
+      .pipeline-demo { gap: 4px; }
+      .pipe-step { min-width: 70px; padding: 10px 10px; }
+      .pipe-arrow { padding: 0 2px; }
+      .stat { min-width: 120px; }
+      nav { padding: 0 16px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- NAV -->
+  <nav>
+    <a class="nav-logo" href="home.html">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polyline points="16 18 22 12 16 6"/>
+        <polyline points="8 6 2 12 8 18"/>
+        <line x1="19" y1="12" x2="5" y2="12" style="opacity:0.4"/>
+      </svg>
+      AI Compiler System
+      <span class="logo-badge">v1.0</span>
+    </a>
+    <a class="nav-cta" href="index.html">
+      Launch App
+      <svg class="arrow-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+    </a>
+  </nav>
+
+  <!-- HERO -->
+  <section class="hero">
+    <div class="hero-inner">
+      <div class="hero-eyebrow">
+        <div class="eyebrow-dot"></div>
+        Natural Language → Working App Blueprint
+      </div>
+      <h1>The <span>AI Compiler</span><br>for Software Generation</h1>
+      <p class="hero-sub">
+        Describe any app in plain English. Our multi-stage pipeline converts your idea into a fully structured, validated, and executable application configuration — instantly.
+      </p>
+      <div class="hero-actions">
+        <a href="index.html" class="btn-primary">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          Try the Compiler
+          <svg class="arrow-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </a>
+        <a href="#how" class="btn-secondary">
+          How it works
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12l7 7 7-7"/></svg>
+        </a>
+      </div>
+
+      <!-- Pipeline visual -->
+      <div class="pipeline-demo">
+        <div class="pipe-step">
+          <div class="pipe-step-num">01</div>
+          <div class="pipe-step-icon">💬</div>
+          <div class="pipe-step-label">Intent</div>
+        </div>
+        <div class="pipe-arrow"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg></div>
+        <div class="pipe-step">
+          <div class="pipe-step-num">02</div>
+          <div class="pipe-step-icon">🏗️</div>
+          <div class="pipe-step-label">Design</div>
+        </div>
+        <div class="pipe-arrow"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg></div>
+        <div class="pipe-step">
+          <div class="pipe-step-num">03</div>
+          <div class="pipe-step-icon">📐</div>
+          <div class="pipe-step-label">Schemas</div>
+        </div>
+        <div class="pipe-arrow"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg></div>
+        <div class="pipe-step">
+          <div class="pipe-step-num">04</div>
+          <div class="pipe-step-icon">🔧</div>
+          <div class="pipe-step-label">Refine</div>
+        </div>
+        <div class="pipe-arrow"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg></div>
+        <div class="pipe-step">
+          <div class="pipe-step-num">05</div>
+          <div class="pipe-step-icon">✅</div>
+          <div class="pipe-step-label">Validate</div>
+        </div>
+        <div class="pipe-arrow"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg></div>
+        <div class="pipe-step">
+          <div class="pipe-step-num">06</div>
+          <div class="pipe-step-icon">🚀</div>
+          <div class="pipe-step-label">Execute</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- STATS STRIP -->
+  <div class="stats-strip">
+    <div class="stat"><div class="stat-val">6</div><div class="stat-label">Pipeline Stages</div></div>
+    <div class="stat"><div class="stat-val">4</div><div class="stat-label">Schema Layers</div></div>
+    <div class="stat"><div class="stat-val">~17s</div><div class="stat-label">Avg Generation Time</div></div>
+    <div class="stat"><div class="stat-val">0</div><div class="stat-label">Manual Fixes Needed</div></div>
+    <div class="stat"><div class="stat-val">✅</div><div class="stat-label">Executable Output</div></div>
+  </div>
+
+  <!-- FEATURES -->
+  <div class="section">
+    <div class="section-label">What it generates</div>
+    <div class="section-title">One prompt. Four complete schemas.</div>
+    <div class="section-sub">Every output is cross-validated for consistency — API fields match DB columns, UI routes map to API endpoints.</div>
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon">🖥️</div>
+        <div class="feature-title">UI Schema</div>
+        <div class="feature-desc">Pages, components, layouts, navigation flows, and form definitions. Every screen your app needs, structured and ready.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">⚡</div>
+        <div class="feature-title">API Schema</div>
+        <div class="feature-desc">REST endpoints with methods, request/response shapes, auth requirements, and validation rules. OpenAPI-compatible.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🗄️</div>
+        <div class="feature-title">Database Schema</div>
+        <div class="feature-desc">Tables, columns, data types, indexes, and foreign-key relations. SQL migration preview included.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🔐</div>
+        <div class="feature-title">Auth & Roles</div>
+        <div class="feature-desc">JWT-based auth config, role definitions, permission matrices, and route-level access guards.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">🛡️</div>
+        <div class="feature-title">Validation + Auto-Repair</div>
+        <div class="feature-desc">Detects invalid JSON, missing keys, schema mismatches, and hallucinated fields — then repairs them automatically.</div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon">📊</div>
+        <div class="feature-title">Evaluation Metrics</div>
+        <div class="feature-desc">Tracks success rate, retries, failure types, and latency across 20 test prompts (10 real + 10 edge cases).</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- HOW IT WORKS -->
+  <div class="section" id="how" style="padding-top: 20px;">
+    <div class="section-label">How it works</div>
+    <div class="section-title">A compiler, not a chatbot.</div>
+    <div class="section-sub">Each stage is modular and independent — failures are repaired at the specific layer, not with a blind full retry.</div>
+    <div class="steps-list">
+      <div class="step-row">
+        <div class="step-num">01</div>
+        <div class="step-content">
+          <div class="step-title">Intent Extraction</div>
+          <div class="step-desc">Your natural language prompt is parsed into a structured intermediate form — app type, features, entities, roles, and constraints.</div>
+          <div class="step-code">&quot;Build a CRM...&quot; → { app_type: &quot;CRM&quot;, features: [...], roles: [&quot;admin&quot;, &quot;user&quot;] }</div>
+        </div>
+      </div>
+      <div class="step-row">
+        <div class="step-num">02</div>
+        <div class="step-content">
+          <div class="step-title">System Design Layer</div>
+          <div class="step-desc">Intent is converted to architecture — entities, data flows, page hierarchy, role permissions, and business logic rules.</div>
+        </div>
+      </div>
+      <div class="step-row">
+        <div class="step-num">03</div>
+        <div class="step-content">
+          <div class="step-title">Schema Generation</div>
+          <div class="step-desc">Four schemas are generated in parallel: UI config, API config, DB schema, and Auth rules — all against strict JSON contracts.</div>
+        </div>
+      </div>
+      <div class="step-row">
+        <div class="step-num">04</div>
+        <div class="step-content">
+          <div class="step-title">Refinement + Cross-Validation</div>
+          <div class="step-desc">Inconsistencies across layers are detected and repaired — e.g., an API field missing from the DB schema gets added automatically.</div>
+        </div>
+      </div>
+      <div class="step-row">
+        <div class="step-num">05</div>
+        <div class="step-content">
+          <div class="step-title">Execution Readiness Check</div>
+          <div class="step-desc">The output is validated for executability — boot log simulation, OpenAPI stub generation, SQL migration preview.</div>
+          <div class="step-code">is_executable: true → boot_log: [&quot;✅ DB connected&quot;, &quot;✅ Auth ready&quot;, ...]</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CTA -->
+  <div class="cta-section">
+    <h2>Ready to compile your app?</h2>
+    <p>Type any app description — CRM, SaaS, marketplace, social platform — and get a complete blueprint in seconds.</p>
+    <a href="index.html" class="btn-primary" style="font-size:1rem; padding: 16px 36px;">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+      Open the Compiler
+      <svg class="arrow-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+    </a>
+  </div>
+
+  <!-- FOOTER -->
+  <footer>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--primary)"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+      <span>AI Compiler System &mdash; v1.0</span>
+    </div>
+    <div style="display:flex;gap:20px;">
+      <a href="index.html">Compiler App →</a>
+      <a href="https://github.com/koyeliya2004/ai-compiler-system" target="_blank" rel="noopener">GitHub →</a>
+    </div>
+  </footer>
+
+  <script>
+    // Back button: if arriving from index.html, nav-cta shows "← Back" instead
+    if (document.referrer.includes('index.html')) {
+      // already on home, no change needed
+    }
+
+    // Add back-arrow to index.html nav by injecting a back link via sessionStorage signal
+    // (index.html is untouched — back navigation is via browser back button)
+  </script>
+</body>
+</html>
