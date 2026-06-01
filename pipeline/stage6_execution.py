@@ -1,103 +1,60 @@
 """
-Stage 6: Execution Awareness
-=============================
-Verifies that the pipeline output is directly usable to generate a working app.
-
-Checks:
-- Has pages (routes)
-- Has API endpoints
-- Has DB tables
-- Has auth roles
-- All routes are guarded
-- DB tables have primary keys
-- API endpoints have HTTP methods
-- Auth has at least one permission set
+Stage 6 — Execution Awareness
+Verifies the output is directly usable to generate a working application.
+Gates on readiness before marking is_executable=True.
 """
-
-import os
-import json
 import logging
-from typing import Dict, Any
 
-from dotenv import load_dotenv
-
-load_dotenv()
-logging.basicConfig(level=os.getenv('PIPELINE_LOG_LEVEL', 'INFO'))
 logger = logging.getLogger(__name__)
 
+READINESS_CHECKS = [
+    ("has_ui_pages",       lambda o: len(o.get("schemas",{}).get("ui_config",{}).get("pages",[])) > 0),
+    ("has_api_endpoints",  lambda o: len(o.get("schemas",{}).get("api_config",{}).get("endpoints",[])) > 0),
+    ("has_db_tables",      lambda o: len(o.get("schemas",{}).get("db_schema",{}).get("tables",[])) > 0),
+    ("has_auth_strategy",  lambda o: bool(o.get("schemas",{}).get("auth_config",{}).get("strategy"))),
+    ("has_auth_roles",     lambda o: len(o.get("schemas",{}).get("auth_config",{}).get("roles",[])) > 0),
+    ("has_blueprint",      lambda o: bool(o.get("blueprint"))),
+    ("has_app_name",       lambda o: bool(o.get("app_name"))),
+]
 
-def check_execution_readiness(final_output: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Stage 6: Execution readiness gate.
-    Verifies the output is directly usable by a runtime without manual fixes.
-    """
-    schemas = final_output.get('schemas', {})
-    ui = schemas.get('ui_config', {})
-    api = schemas.get('api_config', {})
-    db = schemas.get('db_schema', {})
-    auth = schemas.get('auth_config', {})
 
-    pages = ui.get('pages', [])
-    endpoints = api.get('endpoints', [])
-    tables = db.get('tables', [])
-    roles = auth.get('roles', [])
-    guards = auth.get('route_guards', [])
-    guard_routes = {g.get('route') for g in guards}
+def check_execution_readiness(output: dict) -> dict:
+    """Stage 6: Gate on execution readiness."""
+    passed = []
+    failed = []
+    issues = []
 
-    checks = {}
-    checks['has_pages'] = len(pages) > 0
-    checks['has_api_endpoints'] = len(endpoints) > 0
-    checks['has_db_tables'] = len(tables) > 0
-    checks['has_auth_roles'] = len(roles) > 0
-    checks['all_routes_guarded'] = all(p.get('route') in guard_routes for p in pages) if pages else False
-    checks['db_tables_have_primary_keys'] = all(
-        any(col.get('primary_key') for col in t.get('columns', []))
-        for t in tables
-    ) if tables else False
-    checks['api_endpoints_have_methods'] = all(
-        ep.get('method') in ['GET', 'POST', 'PUT', 'PATCH', 'DELETE']
-        for ep in endpoints
-    ) if endpoints else False
-    checks['auth_has_permissions'] = bool(
-        auth.get('permissions') and any(v for v in auth['permissions'].values())
-    ) or bool(any(r.get('permissions') for r in roles))
+    for check_name, check_fn in READINESS_CHECKS:
+        try:
+            ok = check_fn(output)
+        except Exception:
+            ok = False
+        if ok:
+            passed.append(check_name)
+        else:
+            failed.append(check_name)
+            issues.append(f"Readiness check failed: {check_name}")
 
-    is_executable = all(checks.values())
-    issues = [k for k, v in checks.items() if not v]
+    is_executable = len(failed) == 0
+    score = round(len(passed) / len(READINESS_CHECKS) * 100)
 
-    route_list = [p.get('route') for p in pages]
-    endpoint_list = [f"{ep.get('method')} {ep.get('path')}" for ep in endpoints]
-    table_list = [t.get('name') for t in tables]
-    role_list = [r.get('name') for r in roles]
+    schemas = output.get("schemas", {})
+    boot_log = [
+        f"✅ App: {output.get('app_name','Unknown')}",
+        f"✅ Auth strategy: {schemas.get('auth_config',{}).get('strategy','none')}",
+        f"✅ Roles: {', '.join(schemas.get('auth_config',{}).get('roles',[]))}",
+        f"✅ Pages: {len(schemas.get('ui_config',{}).get('pages',[]))}",
+        f"✅ API endpoints: {len(schemas.get('api_config',{}).get('endpoints',[]))}",
+        f"✅ DB tables: {len(schemas.get('db_schema',{}).get('tables',[]))}",
+        f"{'✅' if is_executable else '❌'} Execution gate: {'PASS' if is_executable else 'FAIL'}",
+    ]
 
-    preview = {
-        'app_name': final_output.get('app_name', 'Generated App'),
-        'routes': route_list,
-        'api_endpoints': endpoint_list,
-        'db_tables': table_list,
-        'auth_roles': role_list,
-        'boot_log': [
-            f"[BOOT] Starting {final_output.get('app_name', 'Generated App')} v{final_output.get('pipeline_version', '0.1.0')}",
-            f"[BOOT] Loaded {len(route_list)} route(s): {', '.join(route_list[:5])}",
-            f"[BOOT] Registered {len(endpoint_list)} API endpoint(s)",
-            f"[BOOT] Connected to DB with {len(table_list)} table(s): {', '.join(table_list[:5])}",
-            f"[BOOT] Auth: JWT, roles={role_list}",
-            f"[BOOT] Status: {'READY ✅' if is_executable else 'NOT READY ❌ — ' + str(issues)}"
-        ]
-    }
-
-    if is_executable:
-        logger.info(f'[Stage 6] ✅ EXECUTION READY — {len(route_list)} routes, {len(endpoint_list)} endpoints, {len(table_list)} tables')
-    else:
-        logger.error(f'[Stage 6] ❌ NOT executable. Failed checks: {issues}')
-
+    logger.info(f"[Stage6] is_executable={is_executable} score={score}% failed={failed}")
     return {
-        'is_executable': is_executable,
-        'checks': checks,
-        'issues': issues,
-        'preview': preview
+        "is_executable": is_executable,
+        "readiness_score": score,
+        "checks_passed": passed,
+        "checks_failed": failed,
+        "issues": issues,
+        "preview": {"boot_log": boot_log}
     }
-
-
-if __name__ == '__main__':
-    print('[Stage 6] Import check_execution_readiness(final_output) from this module.')

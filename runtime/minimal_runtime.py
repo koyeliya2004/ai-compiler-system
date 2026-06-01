@@ -1,96 +1,124 @@
 """
-Minimal Runtime Simulator
-==========================
-Simulates a runtime that consumes the AI Compiler output and
-"boots" a minimal application from the generated configs.
-
-This proves execution awareness: the output is directly usable.
-
-In production, replace with a real code generator or
-framework adapter (e.g., Next.js scaffolding, FastAPI generator).
+Runtime — Minimal Runtime
+Generates execution artifacts from the validated output:
+  - OpenAPI stub (JSON)
+  - SQL migration preview
+Proves the output is directly usable, not just decorative JSON.
 """
-
 import json
-from typing import Dict, Any
+import logging
+
+logger = logging.getLogger(__name__)
 
 
-def simulate_runtime(final_output: Dict[str, Any]) -> Dict[str, Any]:
-    """Boot simulation — delegates to Stage 6 execution readiness check."""
-    from pipeline.stage6_execution import check_execution_readiness
-    return check_execution_readiness(final_output)
+def generate_openapi_stub(output: dict) -> dict:
+    """Generate an OpenAPI 3.0 stub from the pipeline output."""
+    api_config = output.get("schemas", {}).get("api_config", {})
+    app_name = output.get("app_name", "Generated App")
+    auth_config = output.get("schemas", {}).get("auth_config", {})
 
-
-def generate_openapi_stub(final_output: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Generate a minimal OpenAPI 3.0 stub from the API config.
-    Proves the output can power a real API spec without manual editing.
-    """
-    api = final_output.get('schemas', {}).get('api_config', {})
-    endpoints = api.get('endpoints', [])
-    app_name = final_output.get('app_name', 'Generated App')
-
-    paths = {}
-    for ep in endpoints:
-        path = ep.get('path', '')
-        method = ep.get('method', 'GET').lower()
-        paths.setdefault(path, {})[method] = {
-            'summary': ep.get('description', ''),
-            'security': [{'BearerAuth': []}] if ep.get('auth_required') else [],
-            'responses': {'200': {'description': 'Success'}}
-        }
-
-    return {
-        'openapi': '3.0.0',
-        'info': {'title': app_name, 'version': '0.1.0'},
-        'paths': paths,
-        'components': {
-            'securitySchemes': {
-                'BearerAuth': {'type': 'http', 'scheme': 'bearer', 'bearerFormat': 'JWT'}
+    openapi = {
+        "openapi": "3.0.0",
+        "info": {
+            "title": app_name,
+            "version": "1.0.0",
+            "description": f"Auto-generated API for {app_name}"
+        },
+        "servers": [{"url": api_config.get("base_path", "/api/v1")}],
+        "components": {
+            "securitySchemes": {
+                "bearerAuth": {
+                    "type": "http",
+                    "scheme": "bearer",
+                    "bearerFormat": "JWT"
+                }
             }
-        }
+        },
+        "paths": {}
     }
 
+    for ep in api_config.get("endpoints", []):
+        path = ep.get("path", "/")
+        method = ep.get("method", "GET").lower()
+        op = {
+            "summary": ep.get("id", "").replace("_", " ").title(),
+            "tags": [path.strip("/").split("/")[0] if path else "default"],
+            "responses": {
+                "200": {
+                    "description": "Success",
+                    "content": {
+                        "application/json": {
+                            "schema": ep.get("response_schema", {"type": "object"})
+                        }
+                    }
+                },
+                "401": {"description": "Unauthorized"},
+                "422": {"description": "Validation Error"}
+            }
+        }
+        if ep.get("auth_required"):
+            op["security"] = [{"bearerAuth": []}]
+        if ep.get("request_body") and method in ("post", "put", "patch"):
+            op["requestBody"] = {
+                "required": True,
+                "content": {
+                    "application/json": {
+                        "schema": ep["request_body"]
+                    }
+                }
+            }
+        if path not in openapi["paths"]:
+            openapi["paths"][path] = {}
+        openapi["paths"][path][method] = op
 
-def generate_db_migration_stub(final_output: Dict[str, Any]) -> str:
-    """
-    Generate a minimal SQL migration script from DB schema.
-    Proves the output can drive a real DB without manual editing.
-    """
-    tables = final_output.get('schemas', {}).get('db_schema', {}).get('tables', [])
-    lines = [
-        '-- Auto-generated migration from AI Compiler output',
-        '-- Run with: psql -U user -d dbname -f migration.sql',
-        ''
-    ]
-
-    for table in tables:
-        ddl = table.get('ddl')
-        if ddl:
-            lines.append(ddl)
-            lines.append('')
-        else:
-            cols = []
-            for col in table.get('columns', []):
-                parts = [col['name'], col.get('type', 'TEXT')]
-                if col.get('primary_key'):
-                    parts.append('PRIMARY KEY')
-                if not col.get('nullable', True):
-                    parts.append('NOT NULL')
-                if col.get('unique') and not col.get('primary_key'):
-                    parts.append('UNIQUE')
-                if col.get('default'):
-                    parts.append(f"DEFAULT {col['default']}")
-                cols.append('  ' + ' '.join(parts))
-            lines.append(f"CREATE TABLE IF NOT EXISTS {table['name']} (")
-            lines.append(',\n'.join(cols))
-            lines.append(');')
-            lines.append('')
-
-    return '\n'.join(lines)
+    logger.info(f"[Runtime] OpenAPI stub: {len(openapi['paths'])} paths")
+    return openapi
 
 
-if __name__ == '__main__':
-    print(json.dumps({
-        'message': 'Runtime simulator ready.',
-        'functions': ['simulate_runtime()', 'generate_openapi_stub()', 'generate_db_migration_stub()']
-    }, indent=2))
+def generate_db_migration_stub(output: dict) -> str:
+    """Generate SQL CREATE TABLE migration preview."""
+    db_schema = output.get("schemas", {}).get("db_schema", {})
+    db_type = db_schema.get("database_type", "postgresql")
+    lines = [f"-- Auto-generated migration for {output.get('app_name','App')}",
+             f"-- Database: {db_type}",
+             f"-- Generated by AI Compiler System v1.0.0", ""]
+
+    TYPE_MAP = {
+        "string": "VARCHAR(255)",
+        "text": "TEXT",
+        "integer": "INTEGER",
+        "int": "INTEGER",
+        "float": "FLOAT",
+        "decimal": "DECIMAL(10,2)",
+        "boolean": "BOOLEAN",
+        "bool": "BOOLEAN",
+        "datetime": "TIMESTAMP",
+        "date": "DATE",
+        "json": "JSONB" if db_type == "postgresql" else "JSON",
+        "uuid": "UUID" if db_type == "postgresql" else "VARCHAR(36)",
+    }
+
+    for table in db_schema.get("tables", []):
+        name = table.get("name", "unknown")
+        lines.append(f"CREATE TABLE IF NOT EXISTS {name} (")
+        col_defs = []
+        for col in table.get("columns", []):
+            col_name = col.get("name", "col")
+            col_type = TYPE_MAP.get(col.get("type", "string").lower(), "VARCHAR(255)")
+            nullable = "" if col.get("nullable", True) else " NOT NULL"
+            pk = " PRIMARY KEY" if col.get("primary_key") else ""
+            col_defs.append(f"  {col_name} {col_type}{pk}{nullable}")
+        lines.append(",\n".join(col_defs))
+        lines.append(");") 
+        lines.append("")
+
+        for rel in table.get("relations", []):
+            target = rel.get("target_table", "")
+            rel_type = rel.get("type", "")
+            if rel_type == "belongs_to" and target:
+                lines.append(f"ALTER TABLE {name} ADD COLUMN IF NOT EXISTS {target}_id UUID REFERENCES {target}(id);")
+
+        lines.append("")
+
+    logger.info(f"[Runtime] SQL migration: {len(db_schema.get('tables',[]))} tables")
+    return "\n".join(lines)

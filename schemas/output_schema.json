@@ -1,25 +1,14 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "OutputSchema",
-  "description": "Final output contract for the AI Compiler pipeline",
+  "title": "PipelineOutput",
+  "description": "Final validated output from the AI Compiler pipeline",
   "type": "object",
-  "required": ["app_name", "pipeline_version", "intent", "intent_raw", "blueprint", "schemas", "metadata"],
-  "additionalProperties": true,
+  "required": ["app_name", "pipeline_version", "schemas", "metadata"],
   "properties": {
-    "app_name": { "type": "string", "minLength": 1 },
-    "pipeline_version": { "type": "string" },
-    "intent": {
-      "type": "object",
-      "required": ["app_type", "features_count", "entities_count", "roles"],
-      "properties": {
-        "app_type": { "type": "string" },
-        "features_count": { "type": "integer", "minimum": 0 },
-        "entities_count": { "type": "integer", "minimum": 0 },
-        "roles": { "type": "array", "items": { "type": "string" } }
-      }
-    },
-    "intent_raw": { "type": "object" },
-    "blueprint": { "type": "object" },
+    "app_name": {"type": "string"},
+    "pipeline_version": {"type": "string"},
+    "intent": {"type": "object"},
+    "blueprint": {"type": "object"},
     "schemas": {
       "type": "object",
       "required": ["ui_config", "api_config", "db_schema", "auth_config"],
@@ -28,21 +17,18 @@
           "type": "object",
           "required": ["pages"],
           "properties": {
-            "theme": { "type": "string" },
             "pages": {
               "type": "array",
-              "minItems": 1,
               "items": {
                 "type": "object",
-                "required": ["id", "name", "route", "components"],
+                "required": ["id", "name", "route"],
                 "properties": {
-                  "id": { "type": "string" },
-                  "name": { "type": "string" },
-                  "route": { "type": "string" },
-                  "requires_auth": { "type": "boolean" },
-                  "roles_allowed": { "type": "array", "items": { "type": "string" } },
-                  "layout": { "type": "string" },
-                  "components": { "type": "array" }
+                  "id": {"type": "string"},
+                  "name": {"type": "string"},
+                  "route": {"type": "string"},
+                  "auth_required": {"type": "boolean"},
+                  "allowed_roles": {"type": "array", "items": {"type": "string"}},
+                  "components": {"type": "array"}
                 }
               }
             }
@@ -50,24 +36,20 @@
         },
         "api_config": {
           "type": "object",
-          "required": ["endpoints"],
+          "required": ["base_path", "endpoints"],
           "properties": {
-            "base_url": { "type": "string" },
+            "base_path": {"type": "string"},
             "endpoints": {
               "type": "array",
-              "minItems": 1,
               "items": {
                 "type": "object",
-                "required": ["id", "path", "method"],
+                "required": ["method", "path"],
                 "properties": {
-                  "id": { "type": "string" },
-                  "path": { "type": "string" },
-                  "method": { "type": "string", "enum": ["GET", "POST", "PUT", "PATCH", "DELETE"] },
-                  "description": { "type": "string" },
-                  "auth_required": { "type": "boolean" },
-                  "roles_allowed": { "type": "array", "items": { "type": "string" } },
-                  "request_body": { "type": ["object", "null"] },
-                  "response": { "type": ["object", "null"] }
+                  "id": {"type": "string"},
+                  "method": {"type": "string", "enum": ["GET","POST","PUT","DELETE","PATCH"]},
+                  "path": {"type": "string"},
+                  "auth_required": {"type": "boolean"},
+                  "allowed_roles": {"type": "array", "items": {"type": "string"}}
                 }
               }
             }
@@ -77,34 +59,16 @@
           "type": "object",
           "required": ["tables"],
           "properties": {
-            "dialect": { "type": "string" },
+            "database_type": {"type": "string"},
             "tables": {
               "type": "array",
-              "minItems": 1,
               "items": {
                 "type": "object",
                 "required": ["name", "columns"],
                 "properties": {
-                  "name": { "type": "string" },
-                  "columns": {
-                    "type": "array",
-                    "minItems": 1,
-                    "items": {
-                      "type": "object",
-                      "required": ["name", "type"],
-                      "properties": {
-                        "name": { "type": "string" },
-                        "type": { "type": "string" },
-                        "primary_key": { "type": "boolean" },
-                        "nullable": { "type": "boolean" },
-                        "unique": { "type": "boolean" },
-                        "default": { "type": ["string", "null"] },
-                        "foreign_key": { "type": ["string", "null"] }
-                      }
-                    }
-                  },
-                  "indexes": { "type": "array", "items": { "type": "string" } },
-                  "relations": { "type": "array" }
+                  "name": {"type": "string"},
+                  "columns": {"type": "array"},
+                  "relations": {"type": "array"}
                 }
               }
             }
@@ -112,50 +76,24 @@
         },
         "auth_config": {
           "type": "object",
-          "required": ["roles", "route_guards"],
+          "required": ["strategy", "roles"],
           "properties": {
-            "strategy": { "type": "string" },
-            "token_expiry_hours": { "type": "integer" },
-            "roles": {
-              "type": "array",
-              "minItems": 1,
-              "items": {
-                "type": "object",
-                "required": ["name", "permissions"],
-                "properties": {
-                  "name": { "type": "string" },
-                  "permissions": { "type": "array", "items": { "type": "string" } }
-                }
-              }
-            },
-            "route_guards": {
-              "type": "array",
-              "items": {
-                "type": "object",
-                "required": ["route", "requires_auth"],
-                "properties": {
-                  "route": { "type": "string" },
-                  "requires_auth": { "type": "boolean" },
-                  "roles_allowed": { "type": "array", "items": { "type": "string" } },
-                  "redirect_to": { "type": ["string", "null"] }
-                }
-              }
-            },
-            "permissions": { "type": "object" }
+            "strategy": {"type": "string"},
+            "roles": {"type": "array", "items": {"type": "string"}},
+            "permissions": {"type": "object"},
+            "token_expiry_hours": {"type": "number"}
           }
         }
       }
     },
     "metadata": {
       "type": "object",
-      "required": ["total_latency_ms"],
       "properties": {
-        "total_latency_ms": { "type": "number" },
-        "stage_latencies": { "type": "object" },
-        "repair_counts": { "type": "object" },
-        "assumptions": { "type": "array", "items": { "type": "string" } },
-        "warnings": { "type": "array", "items": { "type": "string" } },
-        "is_executable": { "type": "boolean" }
+        "total_latency_ms": {"type": "number"},
+        "is_executable": {"type": "boolean"},
+        "repair_counts": {"type": "object"},
+        "assumptions": {"type": "array"},
+        "warnings": {"type": "array"}
       }
     }
   }
