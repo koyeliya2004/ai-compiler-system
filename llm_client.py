@@ -1,20 +1,12 @@
 """
-LLM Client — Provider-agnostic wrapper
-=======================================
-Supports: Groq (default, free), OpenAI (fallback)
-
-Set environment variables:
-  LLM_PROVIDER=groq          (default)
-  LLM_MODEL=llama-3.3-70b-versatile  (default)
-  GROQ_API_KEY=gsk_...       (required for groq)
-  OPENAI_API_KEY=sk-...      (required for openai)
+LLM Client
+==========
+Unified client supporting Groq (default) and OpenAI.
+All pipeline stages use this for consistent LLM access.
 """
-
 import os
 import json
 import logging
-from typing import Optional
-
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -24,74 +16,54 @@ PROVIDER = os.getenv('LLM_PROVIDER', 'groq').lower()
 MODEL = os.getenv('LLM_MODEL', 'llama-3.3-70b-versatile')
 
 
-def get_client():
-    """Return the appropriate LLM client based on LLM_PROVIDER env var."""
-    if PROVIDER == 'groq':
-        from groq import Groq
-        api_key = os.getenv('GROQ_API_KEY')
-        if not api_key:
-            raise ValueError('GROQ_API_KEY environment variable not set.')
-        return Groq(api_key=api_key)
-    elif PROVIDER == 'openai':
-        from openai import OpenAI
-        api_key = os.getenv('OPENAI_API_KEY')
-        if not api_key:
-            raise ValueError('OPENAI_API_KEY environment variable not set.')
-        return OpenAI(api_key=api_key)
-    else:
-        raise ValueError(f'Unknown LLM_PROVIDER: {PROVIDER}. Use groq or openai.')
-
-
-def chat_completion(
-    system_prompt: str,
-    user_prompt: str,
-    temperature: float = 0.1,
-    max_tokens: int = 4096,
-    model: Optional[str] = None
-) -> str:
+def chat_completion_json(system_prompt: str, user_prompt: str, temperature: float = 0.1) -> dict:
     """
-    Provider-agnostic chat completion.
-    Returns the raw string content of the response.
+    Call LLM with JSON mode. Returns parsed dict.
+    Supports: groq (default), openai
     """
-    client = get_client()
-    chosen_model = model or MODEL
+    if PROVIDER == 'openai':
+        return _openai_json(system_prompt, user_prompt, temperature)
+    return _groq_json(system_prompt, user_prompt, temperature)
 
-    logger.debug(f'[LLM] Provider={PROVIDER}, Model={chosen_model}, temp={temperature}')
 
-    response = client.chat.completions.create(
-        model=chosen_model,
+def _groq_json(system_prompt: str, user_prompt: str, temperature: float) -> dict:
+    from groq import Groq
+    api_key = os.environ.get('GROQ_API_KEY')
+    if not api_key:
+        raise EnvironmentError(
+            'GROQ_API_KEY environment variable is not set. '
+            'Get a free key at https://console.groq.com'
+        )
+    client = Groq(api_key=api_key)
+    resp = client.chat.completions.create(
+        model=MODEL,
+        temperature=temperature,
+        response_format={'type': 'json_object'},
         messages=[
             {'role': 'system', 'content': system_prompt},
             {'role': 'user', 'content': user_prompt}
-        ],
-        temperature=temperature,
-        max_tokens=max_tokens,
+        ]
     )
-    return response.choices[0].message.content
+    raw = resp.choices[0].message.content
+    logger.debug(f'[LLM] Groq response length={len(raw)}')
+    return json.loads(raw)
 
 
-def chat_completion_json(
-    system_prompt: str,
-    user_prompt: str,
-    temperature: float = 0.1,
-    max_tokens: int = 4096,
-    model: Optional[str] = None
-) -> dict:
-    """
-    Like chat_completion but parses and returns a JSON dict.
-    Strips markdown code fences if present.
-    Raises ValueError if response is not valid JSON.
-    """
-    raw = chat_completion(system_prompt, user_prompt, temperature, max_tokens, model)
-
-    # Strip markdown code fences if present
-    cleaned = raw.strip()
-    if cleaned.startswith('```'):
-        lines = cleaned.split('\n')
-        cleaned = '\n'.join(lines[1:-1] if lines[-1].strip() == '```' else lines[1:])
-
-    try:
-        return json.loads(cleaned)
-    except json.JSONDecodeError as e:
-        logger.error(f'[LLM] JSON parse failed: {e}\nRaw response: {raw[:500]}')
-        raise ValueError(f'LLM returned invalid JSON: {e}') from e
+def _openai_json(system_prompt: str, user_prompt: str, temperature: float) -> dict:
+    from openai import OpenAI
+    api_key = os.environ.get('OPENAI_API_KEY')
+    if not api_key:
+        raise EnvironmentError('OPENAI_API_KEY environment variable is not set.')
+    client = OpenAI(api_key=api_key)
+    resp = client.chat.completions.create(
+        model=os.getenv('LLM_MODEL', 'gpt-4o-mini'),
+        temperature=temperature,
+        response_format={'type': 'json_object'},
+        messages=[
+            {'role': 'system', 'content': system_prompt},
+            {'role': 'user', 'content': user_prompt}
+        ]
+    )
+    raw = resp.choices[0].message.content
+    logger.debug(f'[LLM] OpenAI response length={len(raw)}')
+    return json.loads(raw)

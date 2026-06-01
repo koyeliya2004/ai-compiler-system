@@ -1,99 +1,60 @@
 """
 Stage 3 — Schema Generation
-Converts AppBlueprint → UI config + API config + DB schema + Auth config.
+Blueprint → UI + API + DB + Auth schemas.
 """
-import os
 import json
 import logging
-from groq import Groq
 
 logger = logging.getLogger(__name__)
 
 SYSTEM_PROMPT = """
 You are a full-stack architect. Given an AppBlueprint JSON, generate a complete schemas JSON.
-
 Output ONLY valid JSON with EXACTLY these top-level keys:
 {
   "ui_config": {
-    "pages": [
-      {
-        "id": string,
-        "name": string,
-        "route": string,
-        "auth_required": boolean,
-        "allowed_roles": [string],
-        "components": [{"type": string, "props": {}}]
-      }
-    ],
-    "theme": {"primary_color": string, "layout": string}
+    "pages": [{"id": "string", "name": "string", "route": "string", "auth_required": true, "allowed_roles": [], "components": []}],
+    "theme": {"primary_color": "#4F46E5", "layout": "sidebar"}
   },
   "api_config": {
     "base_path": "/api/v1",
-    "endpoints": [
-      {
-        "id": string,
-        "method": "GET"|"POST"|"PUT"|"DELETE"|"PATCH",
-        "path": string,
-        "auth_required": boolean,
-        "allowed_roles": [string],
-        "request_body": {} | null,
-        "response_schema": {}
-      }
-    ]
+    "endpoints": [{"id": "string", "method": "GET", "path": "string", "auth_required": true, "allowed_roles": [], "request_body": null, "response_schema": {}}]
   },
   "db_schema": {
-    "database_type": "postgresql"|"mysql"|"sqlite",
-    "tables": [
-      {
-        "name": string,
-        "columns": [{"name": string, "type": string, "nullable": boolean, "primary_key": boolean}],
-        "relations": [{"type": "has_many"|"belongs_to"|"many_to_many", "target_table": string}]
-      }
-    ]
+    "database_type": "postgresql",
+    "tables": [{"name": "string", "columns": [{"name": "id", "type": "uuid", "nullable": false, "primary_key": true}], "relations": []}]
   },
   "auth_config": {
-    "strategy": "jwt"|"session"|"oauth2",
-    "roles": [string],
-    "permissions": {"role_name": ["entity:action"]},
-    "token_expiry_hours": number
+    "strategy": "jwt",
+    "roles": [],
+    "permissions": {},
+    "token_expiry_hours": 24
   }
 }
-
 Rules:
-- Every API endpoint that writes data must have request_body defined
-- Every table must have an 'id' column as primary key
-- API paths must match UI routes logically
-- All roles in auth_config.roles must appear in at least one endpoint's allowed_roles
-- Output must be valid JSON with no trailing commas or comments
+- Every table MUST have an id column with primary_key=true
+- method must be one of: GET, POST, PUT, DELETE, PATCH
+- All roles used in endpoints must also appear in auth_config.roles
+- Output valid JSON, no trailing commas
 """
 
 
 def generate_schemas(blueprint: dict) -> dict:
-    """Stage 3: Blueprint → UI + API + DB + Auth schemas."""
-    client = Groq(api_key=os.environ["GROQ_API_KEY"])
-    model = os.getenv("LLM_MODEL", "llama-3.3-70b-versatile")
-
+    """Stage 3: Blueprint → all schemas."""
+    from llm_client import chat_completion_json
     for attempt in range(3):
         try:
-            resp = client.chat.completions.create(
-                model=model,
-                temperature=0.1,
-                max_tokens=4096,
-                response_format={"type": "json_object"},
-                messages=[
-                    {"role": "system", "content": SYSTEM_PROMPT},
-                    {"role": "user", "content": f"Blueprint:\n{json.dumps(blueprint, indent=2)}"}
-                ]
+            result = chat_completion_json(
+                system_prompt=SYSTEM_PROMPT,
+                user_prompt=f"Blueprint:\n{json.dumps(blueprint, indent=2)}",
+                temperature=0.1
             )
-            raw = resp.choices[0].message.content
-            schemas = json.loads(raw)
             logger.info(
-                f"[Stage3] pages={len(schemas.get('ui_config',{}).get('pages',[]))} "
-                f"endpoints={len(schemas.get('api_config',{}).get('endpoints',[]))} "
-                f"tables={len(schemas.get('db_schema',{}).get('tables',[]))}"
+                f"[Stage3] pages={len(result.get('ui_config',{}).get('pages',[]))} "
+                f"endpoints={len(result.get('api_config',{}).get('endpoints',[]))} "
+                f"tables={len(result.get('db_schema',{}).get('tables',[]))}"
             )
-            return schemas
+            return result
         except Exception as e:
             logger.warning(f"[Stage3] Attempt {attempt+1} failed: {e}")
             if attempt == 2:
-                raise RuntimeError(f"Stage 3 failed after 3 attempts: {e}")
+                raise RuntimeError(f"Stage 3 failed: {e}")

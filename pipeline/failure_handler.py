@@ -1,136 +1,69 @@
 """
 Failure Handler
-================
-Handles vague, conflicting, and underspecified prompts.
-
-Strategy:
-- VAGUE: Make reasonable assumptions, document them, proceed
-- CONFLICTING: Detect contradictions, ask for clarification OR
-  apply a safe default resolution rule
-- UNDERSPECIFIED: Fill in defaults, list all assumptions
-
-This module is called by Stage 1 before the main LLM call.
+===============
+Classifies and enriches prompts before Stage 1 processing.
+Handles: vague, conflicting, underspecified, and clear prompts.
 """
-
 import re
-import logging
-from typing import Tuple
 
-logger = logging.getLogger(__name__)
-
-# Patterns that indicate vague input
-VAGUE_PATTERNS = [
-    r'^build (a |an )?app$',
-    r'^make (a |an )?website$',
-    r'^create something$',
-    r'^i need (a |an )?platform$',
-    r'.{0,30}$',  # very short (under 30 chars)
+VAGUE_SIGNALS = [
+    'app', 'website', 'platform', 'system', 'tool', 'thing',
+    'something', 'make', 'build', 'create'
 ]
 
-# Conflicting requirement pairs
-CONFLICT_RULES = [
-    (
-        ['no login', 'no auth', 'no authentication', 'public app', 'no users'],
-        ['role-based', 'admin', 'permissions', 'rbac', 'user roles'],
-        'Conflict: public app vs role-based access. Assuming auth IS required since roles were specified.'
-    ),
-    (
-        ['free', 'no payment', 'no subscription', 'open source'],
-        ['premium', 'paid', 'subscription', 'stripe', 'payment'],
-        'Conflict: free app vs payment features. Assuming freemium model: free tier + optional premium.'
-    ),
-    (
-        ['simple', 'basic', 'minimal', 'lightweight'],
-        ['enterprise', 'complex', 'advanced', 'full-featured', 'scalable'],
-        'Conflict: simple vs complex. Proceeding with MVP scope — core features only.'
-    ),
+CONFLICT_SIGNALS = [
+    ('free', 'paid'), ('public', 'private'), ('simple', 'complex'),
+    ('no auth', 'login'), ('no login', 'auth')
 ]
 
 
-def classify_prompt(prompt: str) -> Tuple[str, list, list]:
+def classify_prompt(prompt: str) -> tuple:
     """
-    Classify a prompt and return:
-    - classification: 'clear' | 'vague' | 'conflicting' | 'underspecified'
-    - issues: list of detected problems
-    - assumptions: list of assumptions made to proceed
+    Returns (classification, issues, assumptions).
+    classification: 'clear' | 'vague' | 'conflicting' | 'underspecified'
     """
     p = prompt.lower().strip()
     issues = []
     assumptions = []
 
-    # Check vague
-    is_vague = len(prompt.strip()) < 30 or any(
-        re.match(pattern, p) for pattern in VAGUE_PATTERNS[:4]
-    )
-    if is_vague:
-        issues.append('Prompt is too vague or short.')
-        assumptions += [
-            'Assuming a web application with user authentication.',
-            'Assuming admin and user roles.',
-            'Assuming a dashboard as the main page.',
-            'Assuming PostgreSQL as the database.',
-        ]
+    # Too short = underspecified
+    if len(p.split()) < 5:
+        issues.append('Prompt is very short. Please describe features, users, and purpose.')
+        assumptions.append('Assuming a basic web application with standard authentication.')
+        return 'underspecified', issues, assumptions
 
-    # Check conflicts
-    for neg_terms, pos_terms, resolution in CONFLICT_RULES:
-        has_neg = any(t in p for t in neg_terms)
-        has_pos = any(t in p for t in pos_terms)
-        if has_neg and has_pos:
-            issues.append(f'Conflicting requirements detected: {neg_terms[0]} vs {pos_terms[0]}')
-            assumptions.append(resolution)
+    # Check for conflicting signals
+    for a, b in CONFLICT_SIGNALS:
+        if a in p and b in p:
+            issues.append(f"Conflicting requirements detected: '{a}' vs '{b}'. Resolving with reasonable defaults.")
 
-    # Check underspecified (no entities or features mentioned)
-    feature_keywords = ['login', 'dashboard', 'list', 'form', 'report', 'chart',
-                        'upload', 'search', 'filter', 'payment', 'email', 'notification']
-    has_features = any(kw in p for kw in feature_keywords)
-    if not has_features and not is_vague:
-        issues.append('No specific features mentioned.')
-        assumptions.append('Assuming standard CRUD features: list, create, edit, delete.')
-        assumptions.append('Assuming email/password authentication.')
+    # Check for vague-only prompts (no specific features mentioned)
+    has_features = any(w in p for w in [
+        'login', 'auth', 'dashboard', 'payment', 'report', 'user',
+        'admin', 'api', 'search', 'upload', 'email', 'notification',
+        'profile', 'cart', 'order', 'analytics', 'role', 'permission'
+    ])
+    if not has_features:
+        issues.append('No specific features detected. Inferring common features for this app type.')
+        assumptions.append('Adding standard features: authentication, dashboard, user management.')
 
-    if not issues:
-        classification = 'clear'
-    elif any('Conflict' in i for i in issues):
-        classification = 'conflicting'
-    elif is_vague:
-        classification = 'vague'
-    else:
-        classification = 'underspecified'
+    # Make reasonable assumptions for missing info
+    if 'payment' in p or 'paid' in p or 'premium' in p or 'stripe' in p:
+        assumptions.append('Payment integration assumed to use Stripe.')
+    if 'auth' in p or 'login' in p or 'user' in p:
+        assumptions.append('Authentication assumed to use JWT tokens.')
+    if 'admin' in p:
+        assumptions.append('Admin role assumed to have full read/write/delete permissions.')
 
-    return classification, issues, assumptions
+    if issues:
+        return 'conflicting' if any('Conflicting' in i for i in issues) else 'vague', issues, assumptions
+
+    return 'clear', issues, assumptions
 
 
 def enrich_prompt(prompt: str, assumptions: list) -> str:
-    """
-    Enrich a vague/underspecified prompt with assumptions
-    so the LLM has enough context to generate a valid schema.
-    """
+    """Append assumptions context to the prompt for the LLM."""
     if not assumptions:
         return prompt
-    assumption_str = ' '.join(assumptions)
-    return f"{prompt}\n\n[System assumptions: {assumption_str}]"
-
-
-def needs_clarification(classification: str, issues: list) -> bool:
-    """
-    Returns True if the prompt is so vague that clarification
-    should be requested rather than assumed.
-    Only triggered for extremely short prompts (< 10 chars).
-    """
-    return classification == 'vague' and len(issues) > 0 and len(issues[0]) < 10
-
-
-if __name__ == '__main__':
-    tests = [
-        'Build an app',
-        'Build a CRM with login, contacts, dashboard, role-based access, and premium payments.',
-        'Free open source tool with admin roles and stripe payments',
-        'Simple basic app with enterprise-grade scalability',
-        'Create a platform',
-    ]
-    for t in tests:
-        cls, issues, assumptions = classify_prompt(t)
-        print(f'\nPrompt: {t[:60]}')
-        print(f'  Classification: {cls}')
-        print(f'  Issues: {issues}')
-        print(f'  Assumptions: {assumptions}')
+    assumption_text = ' '.join(assumptions)
+    return f"{prompt}\n\n[System assumptions: {assumption_text}]"
