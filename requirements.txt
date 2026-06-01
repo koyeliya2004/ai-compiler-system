@@ -1,24 +1,22 @@
-# AI Compiler System — Dependencies
-# Pinned for Python 3.11 (pre-built wheels available, no Rust compile needed)
+# AI Compiler System
+# Python 3.11.9 (set in .python-version)
 
-# Groq (free, fast)
-groq==0.9.0
+# Groq — 0.11+ fixes httpx proxies incompatibility
+groq==0.11.0
 
-# API Framework
+# httpx pinned — groq 0.11 requires <0.28
+httpx==0.27.2
+
+# API
 fastapi==0.111.0
 uvicorn[standard]==0.29.0
 
-# Pydantic — must match pydantic-core wheel available for Python 3.11
+# Pydantic — pre-built wheels for Python 3.11
 pydantic==2.7.0
 pydantic-core==2.18.1
 
 # Validation
 jsonschema==4.22.0
 
-# Environment
+# Env
 python-dotenv==1.0.1
-
-# uvicorn standard extras (pre-built wheels on 3.11)
-httptools==0.6.1
-uvloop==0.19.0
-websockets==12.0
