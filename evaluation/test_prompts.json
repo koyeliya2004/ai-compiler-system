@@ -1,116 +1,86 @@
 {
-  "real_product_prompts": [
+  "real": [
     {
-      "id": "P001",
-      "category": "CRM",
-      "prompt": "Build a CRM with login, contacts, dashboard, role-based access, and premium plan with payments. Admins can see analytics."
+      "prompt": "Build a CRM with login, contacts, companies, deal pipeline, dashboard analytics, admin and sales roles, and premium billing.",
+      "expected_behavior": "success"
     },
     {
-      "id": "P002",
-      "category": "E-Commerce",
-      "prompt": "Create an e-commerce store with product listings, shopping cart, Stripe payments, order tracking, and admin panel for inventory management."
+      "prompt": "Create a hospital management app with doctors, patients, appointments, prescriptions, billing, role-based access for admin, doctor, and receptionist.",
+      "expected_behavior": "success"
     },
     {
-      "id": "P003",
-      "category": "SaaS",
-      "prompt": "Build a project management tool like Trello with boards, cards, lists, team collaboration, due dates, and Slack notifications."
+      "prompt": "Build an e-commerce admin panel with products, categories, orders, inventory, coupons, analytics, and staff permissions.",
+      "expected_behavior": "success"
     },
     {
-      "id": "P004",
-      "category": "Dashboard",
-      "prompt": "Create an analytics dashboard for a SaaS company showing MRR, churn, DAU, revenue charts, and user growth over time with CSV export."
+      "prompt": "Create a project management platform with teams, tasks, comments, kanban board, deadlines, notifications, and subscription tiers.",
+      "expected_behavior": "success"
     },
     {
-      "id": "P005",
-      "category": "Marketplace",
-      "prompt": "Build a freelance marketplace where clients post jobs, freelancers bid, with escrow payments, reviews, and dispute resolution."
+      "prompt": "Build a learning platform with students, instructors, courses, lessons, quizzes, progress tracking, payments, and admin analytics.",
+      "expected_behavior": "success"
     },
     {
-      "id": "P006",
-      "category": "Social",
-      "prompt": "Create a social platform for developers with profiles, posts, code snippets with syntax highlighting, follows, and trending repos."
+      "prompt": "Create a HRMS system with employee records, payroll, attendance, leave requests, managers, admins, and reporting dashboard.",
+      "expected_behavior": "success"
     },
     {
-      "id": "P007",
-      "category": "Internal Tool",
-      "prompt": "Build an employee onboarding tool with task checklists, document uploads, manager approval workflows, and progress tracking."
+      "prompt": "Build a restaurant ordering app with menus, tables, kitchen status, orders, billing, cashier role, waiter role, and admin reports.",
+      "expected_behavior": "success"
     },
     {
-      "id": "P008",
-      "category": "Blog",
-      "prompt": "Create a multi-author blog with markdown editor, tag system, scheduled publishing, SEO fields, comments, and email subscriptions."
+      "prompt": "Create a SaaS bug tracker with login, workspaces, projects, issues, comments, attachments, role-based permissions, and premium plan gating.",
+      "expected_behavior": "success"
     },
     {
-      "id": "P009",
-      "category": "SaaS",
-      "prompt": "Build an appointment booking system for clinics with patient portal, doctor schedules, SMS reminders, medical records, and billing."
+      "prompt": "Build a real estate CRM with agents, properties, leads, site visits, commissions, admin analytics, and team roles.",
+      "expected_behavior": "success"
     },
     {
-      "id": "P010",
-      "category": "E-Commerce",
-      "prompt": "Create a subscription box service with product curation, recurring billing, box customization, referral program, and customer portal."
+      "prompt": "Create an event management system with organizers, attendees, tickets, payments, check-in, staff roles, and sales dashboard.",
+      "expected_behavior": "success"
     }
   ],
-  "edge_cases": [
+  "edge": [
     {
-      "id": "E001",
-      "category": "vague",
-      "prompt": "Build me an app.",
-      "expected_behavior": "System should populate clarifications_needed and make minimal assumptions"
+      "prompt": "Build something like a business app for a small company.",
+      "expected_behavior": "clarify_or_assume"
     },
     {
-      "id": "E002",
-      "category": "vague",
-      "prompt": "I need a website for my business.",
-      "expected_behavior": "Should ask about business type, features needed"
+      "prompt": "Create a CRM where users do not need login, but only admins and managers can access analytics.",
+      "expected_behavior": "repair_or_flag_conflict"
     },
     {
-      "id": "E003",
-      "category": "conflicting",
-      "prompt": "Build a free app where all features are premium and users must pay to access everything but it's completely free.",
-      "expected_behavior": "Should detect contradiction, document it, make reasonable resolution"
+      "prompt": "Build an app with payments but no user accounts, subscriptions, or customer records.",
+      "expected_behavior": "clarify_or_assume"
     },
     {
-      "id": "E004",
-      "category": "conflicting",
-      "prompt": "Build a social app with no user accounts where users have profiles, followers, and private messages.",
-      "expected_behavior": "Detect conflict: no accounts vs. profiles/messages require accounts"
+      "prompt": "Make a hospital system with patients, but no database.",
+      "expected_behavior": "repair_or_flag_conflict"
     },
     {
-      "id": "E005",
-      "category": "incomplete",
-      "prompt": "Build a payment system.",
-      "expected_behavior": "Should ask: what is being paid for? what currency? stripe or other?"
+      "prompt": "Create an admin dashboard with role-based access, except everyone should be able to do everything.",
+      "expected_behavior": "repair_or_flag_conflict"
     },
     {
-      "id": "E006",
-      "category": "incomplete",
-      "prompt": "Create login and dashboard.",
-      "expected_behavior": "Should clarify: what is on the dashboard? what app context?"
+      "prompt": "Build an e-commerce site with products, orders, checkout, but do not store customer or order information.",
+      "expected_behavior": "repair_or_flag_conflict"
     },
     {
-      "id": "E007",
-      "category": "vague",
-      "prompt": "Something like Airbnb but different.",
-      "expected_behavior": "Use Airbnb as reference, ask what 'different' means"
+      "prompt": "Create a social app with messages, friendships, notifications, and zero API endpoints.",
+      "expected_behavior": "repair_or_flag_conflict"
     },
     {
-      "id": "E008",
-      "category": "conflicting",
-      "prompt": "Admin users should have no permissions but can do everything including delete all data.",
-      "expected_behavior": "Detect permission contradiction, resolve toward all-permissions"
+      "prompt": "Build a dashboard for analytics. That's it.",
+      "expected_behavior": "clarify_or_assume"
     },
     {
-      "id": "E009",
-      "category": "incomplete",
-      "prompt": "Analytics.",
-      "expected_behavior": "Should ask: analytics for what? which metrics? what data source?"
+      "prompt": "Create a school ERP with students, fees, attendance, exams, teachers, parent portal, but keep everything in one giant table.",
+      "expected_behavior": "repair"
     },
     {
-      "id": "E010",
-      "category": "vague",
-      "prompt": "Build an app that helps people.",
-      "expected_behavior": "Maximally vague — should populate all clarifications_needed fields"
+      "prompt": "Build a premium SaaS app with free users, premium users, enterprise users, and no authentication system.",
+      "expected_behavior": "repair_or_flag_conflict"
     }
   ]
 }
