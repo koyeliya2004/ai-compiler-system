@@ -1,0 +1,47 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "FinalOutputSchema",
+  "description": "The complete, validated, execution-ready output of the AI Compiler pipeline",
+  "type": "object",
+  "required": ["app_name", "pipeline_version", "intent", "blueprint", "schemas", "metadata"],
+  "properties": {
+    "app_name": { "type": "string" },
+    "pipeline_version": { "type": "string" },
+    "intent": { "$ref": "#/definitions/IntentSummary" },
+    "blueprint": { "type": "object", "description": "AppBlueprint from Stage 2" },
+    "schemas": {
+      "type": "object",
+      "required": ["ui_config", "api_config", "db_schema", "auth_config"],
+      "properties": {
+        "ui_config": { "type": "object" },
+        "api_config": { "type": "object" },
+        "db_schema": { "type": "object" },
+        "auth_config": { "type": "object" }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "required": ["total_latency_ms", "stage_latencies", "repair_counts", "assumptions", "warnings"],
+      "properties": {
+        "total_latency_ms": { "type": "number" },
+        "stage_latencies": { "type": "object" },
+        "repair_counts": { "type": "object" },
+        "assumptions": { "type": "array", "items": { "type": "string" } },
+        "warnings": { "type": "array", "items": { "type": "string" } },
+        "is_executable": { "type": "boolean" }
+      }
+    }
+  },
+  "definitions": {
+    "IntentSummary": {
+      "type": "object",
+      "required": ["app_type", "features_count", "entities_count", "roles"],
+      "properties": {
+        "app_type": { "type": "string" },
+        "features_count": { "type": "integer" },
+        "entities_count": { "type": "integer" },
+        "roles": { "type": "array", "items": { "type": "string" } }
+      }
+    }
+  }
+}
