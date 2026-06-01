@@ -2,6 +2,7 @@
 Stage 1: Intent Extraction
 ===========================
 Parses raw user prompt into a strict, validated IntentSchema.
+Includes failure handling for vague, conflicting, underspecified prompts.
 
 Input:  raw natural language string
 Output: validated IntentSchema dict
@@ -26,7 +27,7 @@ with open(ROOT / 'schemas' / 'intent_schema.json') as f:
 SYSTEM_PROMPT = """You are Stage 1 of an AI Compiler pipeline.
 Your job: extract structured intent from a natural language app description.
 
-Return ONLY valid JSON matching this exact schema — no explanation, no markdown:
+Return ONLY valid JSON matching this exact schema - no explanation, no markdown:
 {
   "app_name": "string",
   "app_type": "CRM|ECommerce|ProjectManagement|Analytics|Social|Marketplace|Other",
@@ -62,7 +63,7 @@ Return ONLY valid JSON matching this exact schema — no explanation, no markdow
 
 Rules:
 - features must have at least 1 item
-- entities must have at least 1 item
+- entities must have at least 1 item  
 - roles must have at least 1 item
 - If information is vague, make reasonable assumptions and list them in 'assumptions'
 - If critical info is missing, list questions in 'clarifications_needed'
@@ -77,27 +78,47 @@ def validate_intent_schema(data: dict) -> list:
 def extract_intent(prompt: str, max_retries: int = 2) -> dict:
     """
     Stage 1: Extract structured intent from raw prompt.
-    Validates output and repairs with targeted retry if invalid.
+    Includes failure handling for vague/conflicting/underspecified prompts.
     """
     from llm_client import chat_completion_json
+    from pipeline.failure_handler import classify_prompt, enrich_prompt
+
+    # Pre-process: classify and handle problematic prompts
+    classification, issues, assumptions = classify_prompt(prompt)
+    if issues:
+        logger.warning(f'[Stage 1] Prompt classified as {classification}: {issues}')
+    enriched_prompt = enrich_prompt(prompt, assumptions)
 
     for attempt in range(max_retries + 1):
         try:
-            logger.info(f'[Stage 1] Extracting intent (attempt {attempt + 1})')
+            logger.info(f'[Stage 1] Extracting intent (attempt {attempt + 1}, type={classification})')
             result = chat_completion_json(
                 system_prompt=SYSTEM_PROMPT,
-                user_prompt=f'App description: {prompt}',
+                user_prompt=f'App description: {enriched_prompt}',
                 temperature=0.1 if attempt == 0 else 0.05
             )
 
+            # Inject pre-detected assumptions
+            if assumptions:
+                result.setdefault('assumptions', [])
+                for a in assumptions:
+                    if a not in result['assumptions']:
+                        result['assumptions'].append(a)
+
+            if issues:
+                result.setdefault('clarifications_needed', [])
+                for issue in issues:
+                    if issue not in result['clarifications_needed']:
+                        result['clarifications_needed'].append(issue)
+
             errors = validate_intent_schema(result)
             if not errors:
-                logger.info('[Stage 1] ✅ Intent extracted and validated')
+                logger.info(f'[Stage 1] Validated. Classification={classification}, Assumptions={len(assumptions)}')
                 return result
 
             logger.warning(f'[Stage 1] Validation failed (attempt {attempt + 1}): {errors}')
             if attempt < max_retries:
-                prompt = f'{prompt}\n\nPrevious attempt had errors: {errors}. Fix them and return valid JSON.'
+                enriched_prompt = f'{enriched_prompt}\n\nPrevious attempt errors: {errors}. Fix them.'
 
         except Exception as e:
             logger.error(f'[Stage 1] Error on attempt {attempt + 1}: {e}')

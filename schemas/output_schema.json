@@ -1,27 +1,154 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "FinalOutputSchema",
-  "description": "The complete, validated, execution-ready output of the AI Compiler pipeline",
+  "title": "OutputSchema",
+  "description": "Final output contract for the AI Compiler pipeline",
   "type": "object",
-  "required": ["app_name", "pipeline_version", "intent", "blueprint", "schemas", "metadata"],
+  "required": ["app_name", "pipeline_version", "intent", "intent_raw", "blueprint", "schemas", "metadata"],
+  "additionalProperties": true,
   "properties": {
-    "app_name": { "type": "string" },
+    "app_name": { "type": "string", "minLength": 1 },
     "pipeline_version": { "type": "string" },
-    "intent": { "$ref": "#/definitions/IntentSummary" },
-    "blueprint": { "type": "object", "description": "AppBlueprint from Stage 2" },
+    "intent": {
+      "type": "object",
+      "required": ["app_type", "features_count", "entities_count", "roles"],
+      "properties": {
+        "app_type": { "type": "string" },
+        "features_count": { "type": "integer", "minimum": 0 },
+        "entities_count": { "type": "integer", "minimum": 0 },
+        "roles": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "intent_raw": { "type": "object" },
+    "blueprint": { "type": "object" },
     "schemas": {
       "type": "object",
       "required": ["ui_config", "api_config", "db_schema", "auth_config"],
       "properties": {
-        "ui_config": { "type": "object" },
-        "api_config": { "type": "object" },
-        "db_schema": { "type": "object" },
-        "auth_config": { "type": "object" }
+        "ui_config": {
+          "type": "object",
+          "required": ["pages"],
+          "properties": {
+            "theme": { "type": "string" },
+            "pages": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "required": ["id", "name", "route", "components"],
+                "properties": {
+                  "id": { "type": "string" },
+                  "name": { "type": "string" },
+                  "route": { "type": "string" },
+                  "requires_auth": { "type": "boolean" },
+                  "roles_allowed": { "type": "array", "items": { "type": "string" } },
+                  "layout": { "type": "string" },
+                  "components": { "type": "array" }
+                }
+              }
+            }
+          }
+        },
+        "api_config": {
+          "type": "object",
+          "required": ["endpoints"],
+          "properties": {
+            "base_url": { "type": "string" },
+            "endpoints": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "required": ["id", "path", "method"],
+                "properties": {
+                  "id": { "type": "string" },
+                  "path": { "type": "string" },
+                  "method": { "type": "string", "enum": ["GET", "POST", "PUT", "PATCH", "DELETE"] },
+                  "description": { "type": "string" },
+                  "auth_required": { "type": "boolean" },
+                  "roles_allowed": { "type": "array", "items": { "type": "string" } },
+                  "request_body": { "type": ["object", "null"] },
+                  "response": { "type": ["object", "null"] }
+                }
+              }
+            }
+          }
+        },
+        "db_schema": {
+          "type": "object",
+          "required": ["tables"],
+          "properties": {
+            "dialect": { "type": "string" },
+            "tables": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "required": ["name", "columns"],
+                "properties": {
+                  "name": { "type": "string" },
+                  "columns": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                      "type": "object",
+                      "required": ["name", "type"],
+                      "properties": {
+                        "name": { "type": "string" },
+                        "type": { "type": "string" },
+                        "primary_key": { "type": "boolean" },
+                        "nullable": { "type": "boolean" },
+                        "unique": { "type": "boolean" },
+                        "default": { "type": ["string", "null"] },
+                        "foreign_key": { "type": ["string", "null"] }
+                      }
+                    }
+                  },
+                  "indexes": { "type": "array", "items": { "type": "string" } },
+                  "relations": { "type": "array" }
+                }
+              }
+            }
+          }
+        },
+        "auth_config": {
+          "type": "object",
+          "required": ["roles", "route_guards"],
+          "properties": {
+            "strategy": { "type": "string" },
+            "token_expiry_hours": { "type": "integer" },
+            "roles": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "required": ["name", "permissions"],
+                "properties": {
+                  "name": { "type": "string" },
+                  "permissions": { "type": "array", "items": { "type": "string" } }
+                }
+              }
+            },
+            "route_guards": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["route", "requires_auth"],
+                "properties": {
+                  "route": { "type": "string" },
+                  "requires_auth": { "type": "boolean" },
+                  "roles_allowed": { "type": "array", "items": { "type": "string" } },
+                  "redirect_to": { "type": ["string", "null"] }
+                }
+              }
+            },
+            "permissions": { "type": "object" }
+          }
+        }
       }
     },
     "metadata": {
       "type": "object",
-      "required": ["total_latency_ms", "stage_latencies", "repair_counts", "assumptions", "warnings"],
+      "required": ["total_latency_ms"],
       "properties": {
         "total_latency_ms": { "type": "number" },
         "stage_latencies": { "type": "object" },
@@ -29,18 +156,6 @@
         "assumptions": { "type": "array", "items": { "type": "string" } },
         "warnings": { "type": "array", "items": { "type": "string" } },
         "is_executable": { "type": "boolean" }
-      }
-    }
-  },
-  "definitions": {
-    "IntentSummary": {
-      "type": "object",
-      "required": ["app_type", "features_count", "entities_count", "roles"],
-      "properties": {
-        "app_type": { "type": "string" },
-        "features_count": { "type": "integer" },
-        "entities_count": { "type": "integer" },
-        "roles": { "type": "array", "items": { "type": "string" } }
       }
     }
   }
