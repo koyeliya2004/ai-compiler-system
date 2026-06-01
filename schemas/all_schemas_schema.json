@@ -1,0 +1,256 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "AllSchemas",
+  "description": "Stage 3 output — four complete, cross-validated schemas",
+  "type": "object",
+  "required": ["ui_config", "api_config", "db_schema", "auth_config"],
+  "additionalProperties": false,
+  "properties": {
+
+    "ui_config": {
+      "type": "object",
+      "required": ["theme", "pages", "global_components", "navigation"],
+      "additionalProperties": false,
+      "properties": {
+        "theme": { "type": "string", "enum": ["light", "dark", "system"] },
+        "primary_color": { "type": "string" },
+        "font_family": { "type": "string" },
+        "pages": {
+          "type": "array", "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["name", "route", "layout", "access", "components"],
+            "additionalProperties": false,
+            "properties": {
+              "name": { "type": "string" },
+              "route": { "type": "string" },
+              "title": { "type": "string" },
+              "layout": { "type": "string", "enum": ["sidebar", "topnav", "blank", "split", "fullscreen"] },
+              "access": { "type": "string", "enum": ["public", "authenticated", "role_restricted"] },
+              "allowed_roles": { "type": "array", "items": { "type": "string" } },
+              "meta": { "type": "object" },
+              "components": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["id", "type"],
+                  "additionalProperties": false,
+                  "properties": {
+                    "id": { "type": "string" },
+                    "type": { "type": "string", "enum": ["Table","Form","Chart","Card","List","Modal","Sidebar","Navbar","Hero","Stats","Tabs","Button","Input","Select","DatePicker","FileUpload","RichText","Map","Calendar","KanbanBoard","Badge","Avatar","Breadcrumb","Pagination","SearchBar","FilterPanel","ExportButton","NotificationBell"] },
+                    "label": { "type": "string" },
+                    "props": { "type": "object" },
+                    "data_source": { "type": "string" },
+                    "actions": { "type": "array", "items": { "type": "string" } },
+                    "validation": { "type": "object" },
+                    "children": { "type": "array" }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "global_components": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "navigation": {
+          "type": "object",
+          "required": ["type", "items"],
+          "additionalProperties": false,
+          "properties": {
+            "type": { "type": "string", "enum": ["sidebar", "topnav", "bottom-tabs"] },
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["label", "route"],
+                "additionalProperties": false,
+                "properties": {
+                  "label": { "type": "string" },
+                  "route": { "type": "string" },
+                  "icon": { "type": "string" },
+                  "roles": { "type": "array", "items": { "type": "string" } },
+                  "children": { "type": "array" }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+
+    "api_config": {
+      "type": "object",
+      "required": ["base_path", "auth_strategy", "versioning", "endpoints"],
+      "additionalProperties": false,
+      "properties": {
+        "base_path": { "type": "string" },
+        "auth_strategy": { "type": "string", "enum": ["jwt", "oauth2", "api_key", "session"] },
+        "versioning": { "type": "string" },
+        "rate_limiting": { "type": "object" },
+        "cors_origins": { "type": "array", "items": { "type": "string" } },
+        "endpoints": {
+          "type": "array", "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["path", "method", "description", "auth_required", "roles", "response_schema"],
+            "additionalProperties": false,
+            "properties": {
+              "path": { "type": "string" },
+              "method": { "type": "string", "enum": ["GET","POST","PUT","PATCH","DELETE"] },
+              "description": { "type": "string" },
+              "auth_required": { "type": "boolean" },
+              "roles": { "type": "array", "items": { "type": "string" } },
+              "request_body": { "type": "object" },
+              "query_params": { "type": "array", "items": { "type": "object" } },
+              "response_schema": { "type": "object" },
+              "error_responses": { "type": "array", "items": { "type": "object" } },
+              "rate_limit": { "type": "string" },
+              "tags": { "type": "array", "items": { "type": "string" } }
+            }
+          }
+        },
+        "middleware": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+
+    "db_schema": {
+      "type": "object",
+      "required": ["dialect", "tables", "migrations"],
+      "additionalProperties": false,
+      "properties": {
+        "dialect": { "type": "string", "enum": ["postgresql", "mysql", "sqlite", "mongodb"] },
+        "schema_name": { "type": "string" },
+        "tables": {
+          "type": "array", "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["name", "columns"],
+            "additionalProperties": false,
+            "properties": {
+              "name": { "type": "string" },
+              "description": { "type": "string" },
+              "columns": {
+                "type": "array", "minItems": 1,
+                "items": {
+                  "type": "object",
+                  "required": ["name", "type", "nullable"],
+                  "additionalProperties": false,
+                  "properties": {
+                    "name": { "type": "string" },
+                    "type": { "type": "string", "enum": ["UUID","VARCHAR","TEXT","INT","BIGINT","FLOAT","DECIMAL","BOOLEAN","TIMESTAMP","DATE","JSON","JSONB","ENUM","SERIAL"] },
+                    "length": { "type": "integer" },
+                    "nullable": { "type": "boolean" },
+                    "primary_key": { "type": "boolean" },
+                    "unique": { "type": "boolean" },
+                    "default": {},
+                    "enum_values": { "type": "array", "items": { "type": "string" } },
+                    "check": { "type": "string" }
+                  }
+                }
+              },
+              "indexes": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["name", "columns"],
+                  "additionalProperties": false,
+                  "properties": {
+                    "name": { "type": "string" },
+                    "columns": { "type": "array", "items": { "type": "string" } },
+                    "unique": { "type": "boolean" }
+                  }
+                }
+              },
+              "foreign_keys": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["column", "references_table", "references_column"],
+                  "additionalProperties": false,
+                  "properties": {
+                    "column": { "type": "string" },
+                    "references_table": { "type": "string" },
+                    "references_column": { "type": "string" },
+                    "on_delete": { "type": "string", "enum": ["CASCADE","SET NULL","RESTRICT","NO ACTION"] },
+                    "on_update": { "type": "string", "enum": ["CASCADE","SET NULL","RESTRICT","NO ACTION"] }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "migrations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["version", "description", "sql_up"],
+            "additionalProperties": false,
+            "properties": {
+              "version": { "type": "string" },
+              "description": { "type": "string" },
+              "sql_up": { "type": "string" },
+              "sql_down": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+
+    "auth_config": {
+      "type": "object",
+      "required": ["strategy", "token_expiry", "refresh_token", "roles", "route_guards", "password_policy"],
+      "additionalProperties": false,
+      "properties": {
+        "strategy": { "type": "string", "enum": ["jwt", "oauth2", "session", "api_key"] },
+        "token_expiry": { "type": "string" },
+        "refresh_token": { "type": "boolean" },
+        "refresh_expiry": { "type": "string" },
+        "jwt_algorithm": { "type": "string" },
+        "roles": {
+          "type": "array", "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["name", "inherits", "permissions"],
+            "additionalProperties": false,
+            "properties": {
+              "name": { "type": "string" },
+              "inherits": { "type": "array", "items": { "type": "string" } },
+              "permissions": { "type": "array", "items": { "type": "string" } }
+            }
+          }
+        },
+        "route_guards": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["route", "allowed_roles", "redirect_to"],
+            "additionalProperties": false,
+            "properties": {
+              "route": { "type": "string" },
+              "allowed_roles": { "type": "array", "items": { "type": "string" } },
+              "redirect_to": { "type": "string" }
+            }
+          }
+        },
+        "oauth_providers": { "type": "array", "items": { "type": "string" } },
+        "mfa_enabled": { "type": "boolean" },
+        "password_policy": {
+          "type": "object",
+          "required": ["min_length", "require_uppercase", "require_number", "require_special"],
+          "additionalProperties": false,
+          "properties": {
+            "min_length": { "type": "integer" },
+            "require_uppercase": { "type": "boolean" },
+            "require_number": { "type": "boolean" },
+            "require_special": { "type": "boolean" },
+            "max_age_days": { "type": "integer" }
+          }
+        },
+        "session_config": { "type": "object" }
+      }
+    }
+
+  }
+}
