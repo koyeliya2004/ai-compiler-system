@@ -1,41 +1,37 @@
 """
-AI Compiler Pipeline — stage registry
+AI Compiler Pipeline—stage registry.
 
-Each stage exposes a `run(input_dict) -> dict` interface.
-The orchestrator (api/app.py) calls them in order:
-
-  Stage 1: extract_intent      (NL prompt        -> IntentSchema)
-  Stage 2: design_system       (IntentSchema      -> SystemDesign)
-  Stage 3: generate_schemas    (SystemDesign      -> AllSchemas)
-  Stage 4: refine              (AllSchemas        -> RefinedSchemas)
-  Stage 5: validate_and_repair (RefinedSchemas    -> ValidatedOutput)
-  Stage 6: check_execution     (ValidatedOutput   -> ExecutionReport)
+Each stage exposes a `run` callable:
+  Stage 1: extract_intent(prompt: str)   -> IntentSchema
+  Stage 2: design_system(intent: dict)   -> SystemDesign
+  Stage 3: generate_schemas(design: dict)-> AllSchemas
+  Stage 4: refine(intent, design, schemas) -> RefinedOutput
+  Stage 5: validate_and_repair(output: dict) -> ValidatedOutput
+  Stage 6: execute(output: dict)         -> ExecutionResult
 """
 
-from pipeline.stage1_intent_extraction  import extract_intent,   run as run_stage1
-from pipeline.stage2_system_design      import design_system,     run as run_stage2
-from pipeline.stage3_schema_generation  import run                as run_stage3
-from pipeline.stage4_refinement         import run                as run_stage4
-from pipeline.stage5_validation_repair  import run                as run_stage5
-from pipeline.stage6_execution          import run                as run_stage6
+from pipeline.stage1_intent_extraction  import run as extract_intent
+from pipeline.stage2_system_design      import run as design_system
+from pipeline.stage3_schema_generation  import run as generate_schemas
+from pipeline.stage4_refinement         import run as refine
+from pipeline.stage5_validation_repair  import run as validate_and_repair
+from pipeline.stage6_execution          import run as execute
 
-STAGE_RUNNERS = [
-    run_stage1,
-    run_stage2,
-    run_stage3,
-    run_stage4,
-    run_stage5,
-    run_stage6,
+STAGES = [
+    ('Stage 1 — Intent Extraction',  extract_intent),
+    ('Stage 2 — System Design',       design_system),
+    ('Stage 3 — Schema Generation',   generate_schemas),
+    ('Stage 4 — Refinement',          refine),
+    ('Stage 5 — Validation & Repair', validate_and_repair),
+    ('Stage 6 — Execution Awareness', execute),
 ]
 
 __all__ = [
     'extract_intent',
     'design_system',
-    'run_stage1',
-    'run_stage2',
-    'run_stage3',
-    'run_stage4',
-    'run_stage5',
-    'run_stage6',
-    'STAGE_RUNNERS',
+    'generate_schemas',
+    'refine',
+    'validate_and_repair',
+    'execute',
+    'STAGES',
 ]
