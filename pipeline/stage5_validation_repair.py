@@ -1,6 +1,8 @@
 """
-Stage 5 — Validation & Repair
-Model: llama-3.1-8b-instant (ultra-fast, rule-based structural checks)
+Stage 5 -- Validation & Repair
+Model: llama-3.1-8b-instant  (ultra-fast rule-based checks)
+Exports: validate_pipeline_output(output) -> dict
+         repair_pipeline_output(output) -> dict
 """
 import json
 import logging
@@ -8,74 +10,73 @@ from llm_client import chat_completion_json
 
 logger = logging.getLogger(__name__)
 
-REQUIRED_TOP_KEYS = ['ui_config', 'api_config', 'db_schema', 'auth_config']
-REQUIRED_UI   = ['pages']
-REQUIRED_API  = ['endpoints', 'base_path', 'auth']
-REQUIRED_DB   = ['tables', 'dialect']
-REQUIRED_AUTH = ['strategy', 'roles', 'route_guards']
+REQUIRED_SCHEMA_KEYS = ['ui_config', 'api_config', 'db_schema', 'auth_config']
 
 SYSTEM_PROMPT = """You are Stage 5 of an AI compiler pipeline: the Validator & Repair engine.
 
-You receive all 4 schemas. Return ONLY valid JSON:
+Validate the provided schemas and return ONLY valid JSON:
 {
   "valid": true,
   "errors": [],
   "warnings": [],
-  "repaired_schemas": { <same 4-schema structure, with fixes applied> }
+  "repaired_schemas": { <same 4-schema structure with fixes applied> }
 }
 
 Validation rules:
-- All required keys present in each schema layer
+- All required keys present: ui_config, api_config, db_schema, auth_config
 - No null values for required fields
-- All API endpoints have `path`, `method`, `auth_required`
-- All DB columns have `name` and `type`
-- All UI pages have `name` and `route`
+- All API endpoints have path, method, auth_required
+- All DB columns have name and type
+- All UI pages have name and route
 - Auth roles list is non-empty
 
-If errors found: repair them in `repaired_schemas` and list fixes in `errors`.
-If no errors: set `valid: true`, `errors: []`, copy schemas to `repaired_schemas` unchanged.
+If errors found: repair them and list fixes in errors[].
+If no errors: set valid=true, errors=[], copy schemas to repaired_schemas unchanged.
 No prose, no markdown."""
 
 
-def run(schemas: dict) -> dict:
-    logger.info('[Stage 5] Starting validation & repair')
-
-    # Fast structural pre-check (no LLM needed for obvious issues)
+def validate_pipeline_output(output: dict) -> dict:
+    """Stage 5a -- validate. Called by api/app.py"""
+    logger.info('[Stage 5] Validating via Llama 3.1 8B')
+    schemas = output.get('schemas', {})
     quick_errors = _quick_check(schemas)
-    if quick_errors:
-        logger.warning(f'[Stage 5] Quick-check found {len(quick_errors)} issues, sending to LLM repair')
 
     result = chat_completion_json(
         system_prompt=SYSTEM_PROMPT,
-        user_prompt=f"Schemas to validate: {json.dumps(schemas)}\nQuick-check errors found: {quick_errors}",
+        user_prompt='Schemas to validate: ' + json.dumps(schemas) + '  Quick-check errors: ' + str(quick_errors),
         temperature=0.05,
-        stage_id=5          # → routes to llama-3.1-8b-instant
+        stage_id=5
     )
-    result.pop('__model_used__', None)
-    result.pop('__model_label__', None)
-    result.pop('__stage_ms__', None)
+    for k in ['__model_used__', '__model_label__', '__stage_ms__']:
+        result.pop(k, None)
     return result
 
 
-def _quick_check(schemas: dict) -> list:
+def repair_pipeline_output(output: dict) -> dict:
+    """Stage 5b -- repair. Called by api/app.py when validation fails."""
+    logger.info('[Stage 5] Repairing schemas')
+    schemas = output.get('schemas', {})
+    result = chat_completion_json(
+        system_prompt=SYSTEM_PROMPT,
+        user_prompt='Repair these schemas: ' + json.dumps(schemas),
+        temperature=0.05,
+        stage_id=5
+    )
+    for k in ['__model_used__', '__model_label__', '__stage_ms__']:
+        result.pop(k, None)
+    repaired = result.get('repaired_schemas', schemas)
+    output['schemas'] = repaired
+    return output
+
+
+# Keep run() for direct calls
+def run(schemas):
+    return validate_pipeline_output({'schemas': schemas})
+
+
+def _quick_check(schemas):
     errors = []
-    for key in REQUIRED_TOP_KEYS:
+    for key in REQUIRED_SCHEMA_KEYS:
         if key not in schemas:
-            errors.append(f'Missing top-level key: {key}')
-    if 'ui_config' in schemas:
-        for k in REQUIRED_UI:
-            if k not in schemas['ui_config']:
-                errors.append(f'ui_config missing: {k}')
-    if 'api_config' in schemas:
-        for k in REQUIRED_API:
-            if k not in schemas['api_config']:
-                errors.append(f'api_config missing: {k}')
-    if 'db_schema' in schemas:
-        for k in REQUIRED_DB:
-            if k not in schemas['db_schema']:
-                errors.append(f'db_schema missing: {k}')
-    if 'auth_config' in schemas:
-        for k in REQUIRED_AUTH:
-            if k not in schemas['auth_config']:
-                errors.append(f'auth_config missing: {k}')
+            errors.append('Missing: ' + key)
     return errors

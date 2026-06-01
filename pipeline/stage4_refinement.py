@@ -1,23 +1,23 @@
 """
-Stage 4 — Refinement & Cross-Layer Consistency
-Model: openai/gpt-oss-20b (fast + smart for consistency checks)
+Stage 4 -- Refinement & Cross-Layer Consistency
+Model: openai/gpt-oss-20b  (fast + smart for consistency fixes)
+Exports: refine_schemas(schemas) -> dict
 """
 import logging
 from llm_client import chat_completion_json
 
 logger = logging.getLogger(__name__)
 
-SYSTEM_PROMPT = """You are Stage 4 of an AI compiler pipeline. Your job: cross-validate and fix inconsistencies across all schema layers.
+SYSTEM_PROMPT = """You are Stage 4 of an AI compiler pipeline. Cross-validate and fix inconsistencies across schema layers.
 
-You will receive the Stage 3 schemas (ui_config, api_config, db_schema, auth_config).
 Check and fix:
-1. API fields not present in DB schema → add missing DB columns
-2. UI components referencing API routes that don't exist → add missing endpoints
-3. Auth route_guards missing routes defined in ui_config → add them
-4. DB foreign keys referencing non-existent tables → fix references
-5. Role mismatches across layers → normalize role names
+1. API fields not in DB schema -> add missing DB columns
+2. UI components referencing missing API routes -> add endpoints
+3. Auth route_guards missing UI routes -> add them
+4. DB foreign keys to non-existent tables -> fix
+5. Role name mismatches across layers -> normalize
 
-Return the COMPLETE corrected schemas in the EXACT same structure:
+Return the COMPLETE corrected schemas:
 {
   "ui_config": { ... },
   "api_config": { ... },
@@ -25,20 +25,22 @@ Return the COMPLETE corrected schemas in the EXACT same structure:
   "auth_config": { ... },
   "refinement_log": ["<description of each fix made>"]
 }
-
-If everything is already consistent, return it unchanged with an empty refinement_log.
+If already consistent, return unchanged with empty refinement_log.
 No prose, no markdown."""
 
 
-def run(schemas: dict) -> dict:
-    logger.info('[Stage 4] Starting refinement')
+def refine_schemas(schemas: dict) -> dict:
+    """Stage 4 entry point -- called by api/app.py"""
+    logger.info('[Stage 4] Refinement via GPT-OSS 20B')
     result = chat_completion_json(
         system_prompt=SYSTEM_PROMPT,
-        user_prompt=f"Stage 3 Schemas: {schemas}",
+        user_prompt='Stage 3 Schemas: ' + str(schemas),
         temperature=0.05,
-        stage_id=4          # → routes to openai/gpt-oss-20b
+        stage_id=4
     )
-    result.pop('__model_used__', None)
-    result.pop('__model_label__', None)
-    result.pop('__stage_ms__', None)
+    for k in ['__model_used__', '__model_label__', '__stage_ms__']:
+        result.pop(k, None)
     return result
+
+
+run = refine_schemas

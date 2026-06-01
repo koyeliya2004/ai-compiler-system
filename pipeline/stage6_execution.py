@@ -1,6 +1,7 @@
 """
-Stage 6 — Execution Readiness
-Model: openai/gpt-oss-120b (most authoritative final pass)
+Stage 6 -- Execution Readiness
+Model: openai/gpt-oss-120b  (most authoritative final pass)
+Exports: check_execution_readiness(output) -> dict
 """
 import logging
 from llm_client import chat_completion_json
@@ -9,44 +10,41 @@ logger = logging.getLogger(__name__)
 
 SYSTEM_PROMPT = """You are Stage 6 of an AI compiler pipeline: the Execution Readiness checker.
 
-Given the validated schemas, assess whether the output can power a real application.
-Return ONLY valid JSON:
+Assess whether the output can power a real application. Return ONLY valid JSON:
 {
   "is_executable": true,
   "issues": [],
   "preview": {
     "boot_log": [
-      "\u2705 DB schema loaded: <N> tables",
-      "\u2705 Auth strategy: <strategy>",
-      "\u2705 API routes registered: <N>",
-      "\u2705 UI pages mapped: <N>",
-      "\u2705 Role guards active: <roles>"
+      "DB schema loaded: <N> tables",
+      "Auth strategy: <strategy>",
+      "API routes registered: <N>",
+      "UI pages mapped: <N>",
+      "Role guards active: <roles>"
     ]
-  },
-  "artifacts": {
-    "openapi_stub": {
-      "openapi": "3.0.0",
-      "info": { "title": "<app_name>", "version": "1.0.0" },
-      "paths": { "<endpoint_path>": { "<method>": { "summary": "<desc>", "security": [] } } }
-    },
-    "db_migration_preview": "<SQL CREATE TABLE statements as a string>"
   }
 }
-
-If any critical issues make the output non-executable, set `is_executable: false` and list issues.
+If critical issues exist, set is_executable=false and list them in issues[].
 No prose, no markdown."""
 
 
-def run(validated: dict) -> dict:
-    logger.info('[Stage 6] Starting execution readiness check')
-    schemas = validated.get('repaired_schemas', validated)
+def check_execution_readiness(output: dict) -> dict:
+    """Stage 6 entry point -- called by api/app.py"""
+    logger.info('[Stage 6] Execution check via GPT-OSS 120B')
+    schemas = output.get('schemas', {})
+    # Use repaired_schemas if available from stage 5
+    if isinstance(schemas, dict) and 'repaired_schemas' in schemas:
+        schemas = schemas['repaired_schemas']
+
     result = chat_completion_json(
         system_prompt=SYSTEM_PROMPT,
-        user_prompt=f"Validated schemas: {schemas}",
+        user_prompt='Validated schemas: ' + str(schemas),
         temperature=0.05,
-        stage_id=6          # → routes to openai/gpt-oss-120b
+        stage_id=6
     )
-    result.pop('__model_used__', None)
-    result.pop('__model_label__', None)
-    result.pop('__stage_ms__', None)
+    for k in ['__model_used__', '__model_label__', '__stage_ms__']:
+        result.pop(k, None)
     return result
+
+
+run = check_execution_readiness
