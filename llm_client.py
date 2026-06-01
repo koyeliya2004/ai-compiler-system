@@ -1,69 +1,77 @@
 """
-LLM Client
-==========
-Unified client supporting Groq (default) and OpenAI.
-All pipeline stages use this for consistent LLM access.
+LLM Client — Groq Only
+========================
+Single responsibility: call Groq, return a parsed dict.
+Handles:
+  - Missing API key → clear error message
+  - Response not valid JSON → extracts JSON block from text
+  - Empty response → raises with context
 """
 import os
 import json
+import re
 import logging
-from dotenv import load_dotenv
 
-load_dotenv()
 logger = logging.getLogger(__name__)
 
-PROVIDER = os.getenv('LLM_PROVIDER', 'groq').lower()
 MODEL = os.getenv('LLM_MODEL', 'llama-3.3-70b-versatile')
 
 
 def chat_completion_json(system_prompt: str, user_prompt: str, temperature: float = 0.1) -> dict:
     """
-    Call LLM with JSON mode. Returns parsed dict.
-    Supports: groq (default), openai
+    Call Groq with the given prompts. Returns a parsed Python dict.
+    Always uses JSON mode. Raises on failure with a clear message.
     """
-    if PROVIDER == 'openai':
-        return _openai_json(system_prompt, user_prompt, temperature)
-    return _groq_json(system_prompt, user_prompt, temperature)
-
-
-def _groq_json(system_prompt: str, user_prompt: str, temperature: float) -> dict:
-    from groq import Groq
-    api_key = os.environ.get('GROQ_API_KEY')
+    api_key = os.getenv('GROQ_API_KEY', '').strip()
     if not api_key:
         raise EnvironmentError(
-            'GROQ_API_KEY environment variable is not set. '
+            'GROQ_API_KEY is not set. '
+            'Add it in Render → Environment tab. '
             'Get a free key at https://console.groq.com'
         )
+
+    from groq import Groq
     client = Groq(api_key=api_key)
-    resp = client.chat.completions.create(
-        model=MODEL,
-        temperature=temperature,
-        response_format={'type': 'json_object'},
-        messages=[
-            {'role': 'system', 'content': system_prompt},
-            {'role': 'user', 'content': user_prompt}
-        ]
-    )
-    raw = resp.choices[0].message.content
-    logger.debug(f'[LLM] Groq response length={len(raw)}')
-    return json.loads(raw)
 
+    try:
+        resp = client.chat.completions.create(
+            model=MODEL,
+            temperature=temperature,
+            response_format={'type': 'json_object'},
+            messages=[
+                {'role': 'system', 'content': system_prompt},
+                {'role': 'user',   'content': user_prompt}
+            ]
+        )
+    except Exception as e:
+        raise RuntimeError(f'Groq API call failed: {e}') from e
 
-def _openai_json(system_prompt: str, user_prompt: str, temperature: float) -> dict:
-    from openai import OpenAI
-    api_key = os.environ.get('OPENAI_API_KEY')
-    if not api_key:
-        raise EnvironmentError('OPENAI_API_KEY environment variable is not set.')
-    client = OpenAI(api_key=api_key)
-    resp = client.chat.completions.create(
-        model=os.getenv('LLM_MODEL', 'gpt-4o-mini'),
-        temperature=temperature,
-        response_format={'type': 'json_object'},
-        messages=[
-            {'role': 'system', 'content': system_prompt},
-            {'role': 'user', 'content': user_prompt}
-        ]
-    )
-    raw = resp.choices[0].message.content
-    logger.debug(f'[LLM] OpenAI response length={len(raw)}')
-    return json.loads(raw)
+    raw = (resp.choices[0].message.content or '').strip()
+    if not raw:
+        raise ValueError('Groq returned an empty response.')
+
+    logger.debug(f'[LLM] Raw response length={len(raw)}')
+
+    # Primary: direct parse
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        pass
+
+    # Fallback: extract first JSON block from markdown fences
+    match = re.search(r'```(?:json)?\s*([\s\S]+?)```', raw)
+    if match:
+        try:
+            return json.loads(match.group(1).strip())
+        except json.JSONDecodeError:
+            pass
+
+    # Last resort: find first { ... } block
+    match = re.search(r'(\{[\s\S]+\})', raw)
+    if match:
+        try:
+            return json.loads(match.group(1))
+        except json.JSONDecodeError:
+            pass
+
+    raise ValueError(f'Could not parse JSON from Groq response. Raw (first 300 chars): {raw[:300]}')
