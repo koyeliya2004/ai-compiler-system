@@ -1,0 +1,94 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "IntentSchema",
+  "description": "Structured representation of user intent extracted from natural language",
+  "type": "object",
+  "required": ["app_name", "app_type", "features", "entities", "roles", "auth_required", "assumptions"],
+  "properties": {
+    "app_name": {
+      "type": "string",
+      "description": "Inferred or explicit name for the application"
+    },
+    "app_type": {
+      "type": "string",
+      "enum": ["CRM", "E-Commerce", "SaaS", "Dashboard", "Blog", "Marketplace", "Social", "Internal Tool", "Other"],
+      "description": "Category of application"
+    },
+    "description": {
+      "type": "string",
+      "description": "One-sentence description of the app"
+    },
+    "features": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "description", "priority"],
+        "properties": {
+          "name": { "type": "string" },
+          "description": { "type": "string" },
+          "priority": { "type": "string", "enum": ["must-have", "should-have", "nice-to-have"] },
+          "requires_auth": { "type": "boolean" },
+          "roles_allowed": { "type": "array", "items": { "type": "string" } }
+        }
+      },
+      "minItems": 1
+    },
+    "entities": {
+      "type": "array",
+      "description": "Core data entities/models inferred from the prompt",
+      "items": {
+        "type": "object",
+        "required": ["name", "fields"],
+        "properties": {
+          "name": { "type": "string" },
+          "fields": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["name", "type"],
+              "properties": {
+                "name": { "type": "string" },
+                "type": { "type": "string", "enum": ["string", "integer", "float", "boolean", "date", "datetime", "uuid", "text", "email", "url", "json"] },
+                "required": { "type": "boolean" },
+                "unique": { "type": "boolean" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "roles": {
+      "type": "array",
+      "description": "User roles in the system",
+      "items": {
+        "type": "object",
+        "required": ["name", "permissions"],
+        "properties": {
+          "name": { "type": "string" },
+          "permissions": { "type": "array", "items": { "type": "string" } },
+          "is_default": { "type": "boolean" }
+        }
+      }
+    },
+    "auth_required": {
+      "type": "boolean"
+    },
+    "payment_required": {
+      "type": "boolean"
+    },
+    "premium_features": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "assumptions": {
+      "type": "array",
+      "description": "Assumptions made due to vague/missing input",
+      "items": { "type": "string" }
+    },
+    "clarifications_needed": {
+      "type": "array",
+      "description": "Questions to ask user if input is too vague",
+      "items": { "type": "string" }
+    }
+  }
+}

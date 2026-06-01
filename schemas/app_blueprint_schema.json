@@ -1,0 +1,111 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "AppBlueprint",
+  "description": "Full application architecture derived from IntentSchema",
+  "type": "object",
+  "required": ["app_name", "pages", "api_endpoints", "database", "auth", "business_logic"],
+  "properties": {
+    "app_name": { "type": "string" },
+    "pages": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "route", "components", "requires_auth", "roles_allowed"],
+        "properties": {
+          "name": { "type": "string" },
+          "route": { "type": "string" },
+          "title": { "type": "string" },
+          "layout": { "type": "string", "enum": ["full", "sidebar", "centered", "dashboard"] },
+          "components": { "type": "array", "items": { "type": "string" } },
+          "requires_auth": { "type": "boolean" },
+          "roles_allowed": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "api_endpoints": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["path", "method", "description", "request_body", "response", "roles_allowed"],
+        "properties": {
+          "path": { "type": "string" },
+          "method": { "type": "string", "enum": ["GET", "POST", "PUT", "PATCH", "DELETE"] },
+          "description": { "type": "string" },
+          "request_body": { "type": ["object", "null"] },
+          "response": { "type": "object" },
+          "roles_allowed": { "type": "array", "items": { "type": "string" } },
+          "auth_required": { "type": "boolean" }
+        }
+      }
+    },
+    "database": {
+      "type": "object",
+      "required": ["tables"],
+      "properties": {
+        "type": { "type": "string", "enum": ["postgresql", "mysql", "sqlite", "mongodb"] },
+        "tables": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["name", "columns"],
+            "properties": {
+              "name": { "type": "string" },
+              "columns": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["name", "type"],
+                  "properties": {
+                    "name": { "type": "string" },
+                    "type": { "type": "string" },
+                    "primary_key": { "type": "boolean" },
+                    "nullable": { "type": "boolean" },
+                    "unique": { "type": "boolean" },
+                    "default": {}
+                  }
+                }
+              },
+              "relations": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "type": { "type": "string", "enum": ["one-to-many", "many-to-many", "one-to-one"] },
+                    "target_table": { "type": "string" },
+                    "foreign_key": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "auth": {
+      "type": "object",
+      "required": ["type", "roles", "permissions"],
+      "properties": {
+        "type": { "type": "string", "enum": ["jwt", "session", "oauth", "api_key"] },
+        "roles": { "type": "array", "items": { "type": "string" } },
+        "permissions": {
+          "type": "object",
+          "additionalProperties": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "business_logic": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "description", "trigger", "action"],
+        "properties": {
+          "name": { "type": "string" },
+          "description": { "type": "string" },
+          "trigger": { "type": "string" },
+          "action": { "type": "string" },
+          "conditions": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    }
+  }
+}
