@@ -1,11 +1,7 @@
 """
-LLM Client — Groq Only
-========================
-Single responsibility: call Groq, return a parsed dict.
-Handles:
-  - Missing API key → clear error message
-  - Response not valid JSON → extracts JSON block from text
-  - Empty response → raises with context
+LLM Client — Groq Only (groq>=0.11.0)
+========================================
+Do NOT pass proxies= to Groq() — removed in groq 0.11+
 """
 import os
 import json
@@ -14,64 +10,66 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-MODEL = os.getenv('LLM_MODEL', 'llama-3.3-70b-versatile')
-
 
 def chat_completion_json(system_prompt: str, user_prompt: str, temperature: float = 0.1) -> dict:
     """
-    Call Groq with the given prompts. Returns a parsed Python dict.
-    Always uses JSON mode. Raises on failure with a clear message.
+    Call Groq, return parsed dict. Raises clear errors on failure.
     """
     api_key = os.getenv('GROQ_API_KEY', '').strip()
     if not api_key:
         raise EnvironmentError(
             'GROQ_API_KEY is not set. '
-            'Add it in Render → Environment tab. '
-            'Get a free key at https://console.groq.com'
+            'Go to Render dashboard → your service → Environment tab → add GROQ_API_KEY. '
+            'Free key at https://console.groq.com'
         )
 
+    model = os.getenv('LLM_MODEL', 'llama-3.3-70b-versatile')
+
+    # Import here — never at module level
     from groq import Groq
+
+    # IMPORTANT: do NOT pass proxies=, timeout= as kwargs — removed in groq 0.11
     client = Groq(api_key=api_key)
 
     try:
-        resp = client.chat.completions.create(
-            model=MODEL,
+        response = client.chat.completions.create(
+            model=model,
             temperature=temperature,
-            response_format={'type': 'json_object'},
+            response_format={"type": "json_object"},
             messages=[
-                {'role': 'system', 'content': system_prompt},
-                {'role': 'user',   'content': user_prompt}
+                {"role": "system", "content": system_prompt},
+                {"role": "user",   "content": user_prompt}
             ]
         )
     except Exception as e:
-        raise RuntimeError(f'Groq API call failed: {e}') from e
+        raise RuntimeError(f'Groq API call failed: {type(e).__name__}: {e}') from e
 
-    raw = (resp.choices[0].message.content or '').strip()
+    raw = (response.choices[0].message.content or '').strip()
     if not raw:
-        raise ValueError('Groq returned an empty response.')
+        raise ValueError('Groq returned empty response')
 
-    logger.debug(f'[LLM] Raw response length={len(raw)}')
+    logger.debug(f'[LLM] response length={len(raw)}')
 
-    # Primary: direct parse
+    # Layer 1: direct JSON parse
     try:
         return json.loads(raw)
     except json.JSONDecodeError:
         pass
 
-    # Fallback: extract first JSON block from markdown fences
-    match = re.search(r'```(?:json)?\s*([\s\S]+?)```', raw)
-    if match:
+    # Layer 2: strip markdown fences
+    m = re.search(r'```(?:json)?\s*([\s\S]+?)```', raw)
+    if m:
         try:
-            return json.loads(match.group(1).strip())
+            return json.loads(m.group(1).strip())
         except json.JSONDecodeError:
             pass
 
-    # Last resort: find first { ... } block
-    match = re.search(r'(\{[\s\S]+\})', raw)
-    if match:
+    # Layer 3: find first { ... } block
+    m = re.search(r'(\{[\s\S]+\})', raw)
+    if m:
         try:
-            return json.loads(match.group(1))
+            return json.loads(m.group(1))
         except json.JSONDecodeError:
             pass
 
-    raise ValueError(f'Could not parse JSON from Groq response. Raw (first 300 chars): {raw[:300]}')
+    raise ValueError(f'Cannot parse JSON from Groq response. First 300 chars: {raw[:300]}')
