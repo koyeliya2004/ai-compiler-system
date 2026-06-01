@@ -6,12 +6,13 @@
   <title>AI Compiler System</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <style>
     :root {
       --bg: #0d0d0f;
       --surface: #131316;
       --surface2: #1a1a1e;
+      --surface3: #202026;
       --border: #2a2a30;
       --text: #e8e8ec;
       --muted: #7a7a8a;
@@ -19,24 +20,24 @@
       --primary: #7c6af7;
       --primary-hover: #9b8dfb;
       --primary-glow: rgba(124,106,247,0.15);
+      --primary-glow2: rgba(124,106,247,0.08);
       --success: #4ade80;
       --error: #f87171;
       --warning: #fb923c;
+      --cyan: #67e8f9;
       --mono: 'JetBrains Mono', monospace;
       --sans: 'Inter', sans-serif;
       --radius: 10px;
       --radius-sm: 6px;
+      --radius-lg: 16px;
     }
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    html { font-size: 15px; }
-    body {
-      font-family: var(--sans);
-      background: var(--bg);
-      color: var(--text);
-      min-height: 100dvh;
-      display: grid;
-      grid-template-rows: auto 1fr;
-    }
+    html { font-size: 15px; scroll-behavior: smooth; }
+    body { font-family: var(--sans); background: var(--bg); color: var(--text); min-height: 100dvh; overflow-x: hidden; }
+
+    /* ============================================================
+       SHARED HEADER
+    ============================================================ */
     header {
       padding: 0 24px;
       height: 56px;
@@ -44,19 +45,197 @@
       align-items: center;
       justify-content: space-between;
       border-bottom: 1px solid var(--border);
-      background: var(--surface);
-      position: sticky;
-      top: 0;
-      z-index: 10;
+      background: rgba(13,13,15,0.85);
+      backdrop-filter: blur(12px);
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 100;
     }
-    .logo { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 0.95rem; letter-spacing: -0.01em; }
-    .logo svg { color: var(--primary); }
+    .logo { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 0.95rem; letter-spacing: -0.01em; cursor: pointer; }
+    .logo svg { color: var(--primary); flex-shrink: 0; }
     .logo-badge { background: var(--primary-glow); border: 1px solid var(--primary); color: var(--primary); font-size: 0.65rem; font-weight: 600; padding: 2px 7px; border-radius: 999px; letter-spacing: 0.04em; text-transform: uppercase; }
-    .header-right { display: flex; align-items: center; gap: 12px; }
-    .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--success); box-shadow: 0 0 6px var(--success); animation: pulse 2s infinite; }
-    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+    .header-right { display: flex; align-items: center; gap: 10px; }
+    .header-btn {
+      display: flex; align-items: center; gap: 6px;
+      padding: 6px 14px; border-radius: var(--radius-sm);
+      font-size: 0.78rem; font-weight: 500;
+      border: 1px solid var(--border); background: var(--surface2);
+      color: var(--muted); cursor: pointer;
+      transition: all 0.15s;
+    }
+    .header-btn:hover { color: var(--text); border-color: var(--primary); background: var(--primary-glow2); }
+    .header-btn.active { color: var(--primary); border-color: var(--primary); background: var(--primary-glow); }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--success); box-shadow: 0 0 6px var(--success); animation: pulse 2s infinite; flex-shrink: 0; }
     .status-label { font-size: 0.75rem; color: var(--muted); }
-    main { display: grid; grid-template-columns: 420px 1fr; height: calc(100dvh - 56px); overflow: hidden; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+
+    /* ============================================================
+       VIEWS
+    ============================================================ */
+    .view { display: none; }
+    .view.active { display: block; }
+    #homeView { padding-top: 56px; }
+    #appView { padding-top: 56px; height: 100dvh; display: none; flex-direction: column; }
+    #appView.active { display: flex; }
+
+    /* ============================================================
+       HOME — HERO
+    ============================================================ */
+    .hero {
+      min-height: calc(100dvh - 56px);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 60px 24px 80px;
+      position: relative;
+      overflow: hidden;
+    }
+    .hero-grid {
+      position: absolute; inset: 0;
+      background-image:
+        linear-gradient(rgba(124,106,247,0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(124,106,247,0.04) 1px, transparent 1px);
+      background-size: 48px 48px;
+      pointer-events: none;
+    }
+    .hero-glow {
+      position: absolute;
+      width: 600px; height: 600px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(124,106,247,0.12) 0%, transparent 70%);
+      top: 50%; left: 50%;
+      transform: translate(-50%, -60%);
+      pointer-events: none;
+    }
+    .hero-tag {
+      display: inline-flex; align-items: center; gap: 8px;
+      border: 1px solid var(--border); background: var(--surface);
+      border-radius: 999px; padding: 6px 16px;
+      font-size: 0.75rem; font-weight: 500; color: var(--muted);
+      margin-bottom: 32px; letter-spacing: 0.03em;
+      position: relative;
+    }
+    .hero-tag-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--primary); box-shadow: 0 0 6px var(--primary); animation: pulse 2s infinite; }
+    .hero-title {
+      font-size: clamp(2.4rem, 6vw, 4.5rem);
+      font-weight: 700;
+      line-height: 1.1;
+      letter-spacing: -0.03em;
+      margin-bottom: 24px;
+      position: relative;
+    }
+    .hero-title .accent { color: var(--primary); }
+    .hero-title .grad {
+      background: linear-gradient(135deg, #7c6af7 0%, #67e8f9 100%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    }
+    .hero-sub {
+      font-size: clamp(1rem, 2vw, 1.2rem);
+      color: var(--muted); font-weight: 400;
+      max-width: 560px; line-height: 1.7;
+      margin-bottom: 40px; position: relative;
+    }
+    .hero-cta {
+      display: flex; gap: 12px; flex-wrap: wrap; justify-content: center;
+      position: relative;
+    }
+    .btn-primary {
+      display: flex; align-items: center; gap: 8px;
+      padding: 14px 28px; border-radius: var(--radius);
+      background: var(--primary); color: #fff;
+      font-size: 0.95rem; font-weight: 600;
+      border: none; cursor: pointer;
+      transition: background 0.2s, transform 0.1s, box-shadow 0.2s;
+      box-shadow: 0 0 32px rgba(124,106,247,0.3);
+    }
+    .btn-primary:hover { background: var(--primary-hover); box-shadow: 0 0 48px rgba(124,106,247,0.45); }
+    .btn-primary:active { transform: scale(0.97); }
+    .btn-secondary {
+      display: flex; align-items: center; gap: 8px;
+      padding: 14px 28px; border-radius: var(--radius);
+      background: var(--surface2); color: var(--text);
+      font-size: 0.95rem; font-weight: 500;
+      border: 1px solid var(--border); cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-secondary:hover { border-color: var(--primary); background: var(--primary-glow2); }
+
+    /* pipeline animation */
+    .pipeline-demo {
+      margin-top: 72px;
+      display: flex; align-items: center; gap: 0;
+      position: relative; flex-wrap: wrap; justify-content: center;
+    }
+    .pd-step {
+      display: flex; flex-direction: column; align-items: center; gap: 8px;
+      padding: 16px 20px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      min-width: 100px;
+      animation: fadeUp 0.6s ease both;
+    }
+    .pd-step:nth-child(1) { animation-delay: 0.1s; }
+    .pd-step:nth-child(3) { animation-delay: 0.2s; }
+    .pd-step:nth-child(5) { animation-delay: 0.3s; }
+    .pd-step:nth-child(7) { animation-delay: 0.4s; }
+    .pd-step:nth-child(9) { animation-delay: 0.5s; }
+    .pd-step:nth-child(11) { animation-delay: 0.6s; }
+    @keyframes fadeUp { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
+    .pd-icon { font-size: 1.3rem; }
+    .pd-label { font-size: 0.7rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; text-align: center; }
+    .pd-model { font-size: 0.62rem; color: var(--faint); font-family: var(--mono); margin-top: 2px; text-align: center; }
+    .pd-arrow { color: var(--faint); font-size: 1.2rem; margin: 0 4px; align-self: center; }
+
+    /* ============================================================
+       HOME — FEATURES
+    ============================================================ */
+    .section { padding: 80px 24px; max-width: 1100px; margin: 0 auto; }
+    .section-tag { font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--primary); margin-bottom: 12px; }
+    .section-title { font-size: clamp(1.6rem, 3vw, 2.4rem); font-weight: 700; letter-spacing: -0.02em; margin-bottom: 16px; }
+    .section-sub { font-size: 1rem; color: var(--muted); max-width: 500px; line-height: 1.7; margin-bottom: 48px; }
+    .features-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
+    .feature-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius-lg); padding: 24px;
+      transition: border-color 0.2s, transform 0.2s;
+    }
+    .feature-card:hover { border-color: var(--primary); transform: translateY(-2px); }
+    .feature-icon { width: 40px; height: 40px; border-radius: var(--radius-sm); background: var(--primary-glow); border: 1px solid rgba(124,106,247,0.3); display: flex; align-items: center; justify-content: center; font-size: 1.1rem; margin-bottom: 14px; }
+    .feature-title { font-size: 0.95rem; font-weight: 600; margin-bottom: 8px; }
+    .feature-desc { font-size: 0.83rem; color: var(--muted); line-height: 1.65; }
+    .feature-model { display: inline-flex; align-items: center; gap: 5px; margin-top: 10px; font-size: 0.68rem; font-family: var(--mono); color: var(--faint); background: var(--surface2); border: 1px solid var(--border); border-radius: 999px; padding: 3px 10px; }
+    .feature-model-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--primary); }
+
+    /* stats */
+    .stats-row { display: flex; gap: 32px; flex-wrap: wrap; margin-top: 60px; padding-top: 60px; border-top: 1px solid var(--border); }
+    .stat { flex: 1; min-width: 140px; }
+    .stat-num { font-size: 2.2rem; font-weight: 700; font-family: var(--mono); color: var(--primary); letter-spacing: -0.02em; }
+    .stat-label { font-size: 0.82rem; color: var(--muted); margin-top: 4px; }
+
+    /* how it works */
+    .how-steps { display: flex; flex-direction: column; gap: 0; }
+    .how-step { display: flex; gap: 24px; align-items: flex-start; padding: 24px 0; border-bottom: 1px solid var(--border); }
+    .how-step:last-child { border-bottom: none; }
+    .how-num { width: 36px; height: 36px; border-radius: 50%; background: var(--primary-glow); border: 1px solid rgba(124,106,247,0.4); display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: 700; color: var(--primary); flex-shrink: 0; font-family: var(--mono); }
+    .how-content { flex: 1; }
+    .how-title { font-size: 0.95rem; font-weight: 600; margin-bottom: 6px; }
+    .how-desc { font-size: 0.83rem; color: var(--muted); line-height: 1.65; }
+    .how-badge { display: inline-flex; align-items: center; gap: 5px; margin-top: 8px; font-size: 0.68rem; font-family: var(--mono); color: var(--cyan); background: rgba(103,232,249,0.08); border: 1px solid rgba(103,232,249,0.2); border-radius: 999px; padding: 3px 10px; }
+
+    /* CTA section */
+    .cta-section { text-align: center; padding: 80px 24px 100px; background: linear-gradient(to bottom, transparent, rgba(124,106,247,0.05)); }
+    .cta-section .section-title { font-size: clamp(1.8rem, 3vw, 2.6rem); }
+
+    /* footer */
+    footer { border-top: 1px solid var(--border); padding: 24px; display: flex; align-items: center; justify-content: space-between; flex-wrap: gap; font-size: 0.78rem; color: var(--faint); }
+
+    /* ============================================================
+       APP VIEW
+    ============================================================ */
+    #appMain { display: grid; grid-template-columns: 420px 1fr; flex: 1; overflow: hidden; }
     .panel-left { border-right: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; }
     .panel-section { padding: 20px; border-bottom: 1px solid var(--border); }
     .panel-label { font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 12px; }
@@ -73,19 +252,19 @@
     .example-chip { display: block; width: 100%; text-align: left; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px 12px; font-size: 0.8rem; color: var(--muted); cursor: pointer; margin-bottom: 8px; transition: all 0.15s; line-height: 1.4; }
     .example-chip:hover { color: var(--text); border-color: var(--primary); background: var(--primary-glow); }
     .panel-right { display: flex; flex-direction: column; overflow: hidden; }
-    .tab-bar { display: flex; border-bottom: 1px solid var(--border); background: var(--surface); padding: 0 20px; gap: 0; overflow-x: auto; }
+    .tab-bar { display: flex; border-bottom: 1px solid var(--border); background: var(--surface); padding: 0 20px; gap: 0; overflow-x: auto; flex-shrink: 0; }
     .tab { padding: 14px 16px 12px; font-size: 0.8rem; font-weight: 500; color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap; transition: all 0.15s; background: none; border-top: none; border-left: none; border-right: none; }
     .tab:hover { color: var(--text); }
     .tab.active { color: var(--primary); border-bottom-color: var(--primary); }
     .output-area { flex: 1; overflow-y: auto; padding: 20px; }
-    .metrics-bar { display: flex; gap: 20px; padding: 12px 20px; border-bottom: 1px solid var(--border); background: var(--surface); flex-wrap: wrap; }
+    .metrics-bar { display: flex; gap: 20px; padding: 12px 20px; border-bottom: 1px solid var(--border); background: var(--surface); flex-wrap: wrap; flex-shrink: 0; }
     .metric { display: flex; flex-direction: column; gap: 2px; }
     .metric-label { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
     .metric-value { font-size: 0.875rem; font-weight: 600; font-family: var(--mono); }
     .metric-value.success { color: var(--success); }
     .metric-value.error { color: var(--error); }
     .metric-value.warn { color: var(--warning); }
-    .pipeline-stages { display: flex; gap: 8px; padding: 16px 20px; border-bottom: 1px solid var(--border); background: var(--surface); overflow-x: auto; }
+    .pipeline-stages { display: flex; gap: 8px; padding: 16px 20px; border-bottom: 1px solid var(--border); background: var(--surface); overflow-x: auto; flex-shrink: 0; }
     .stage-pill { display: flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; font-size: 0.72rem; font-weight: 600; border: 1px solid var(--border); color: var(--muted); white-space: nowrap; transition: all 0.3s; }
     .stage-pill.done { border-color: var(--success); color: var(--success); background: rgba(74,222,128,0.08); }
     .stage-pill.active { border-color: var(--primary); color: var(--primary); background: var(--primary-glow); animation: stagePulse 1s infinite; }
@@ -113,19 +292,62 @@
     .empty-state { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: 12px; color: var(--faint); text-align: center; }
     .empty-state svg { opacity: 0.3; }
     .empty-state p { font-size: 0.85rem; max-width: 260px; line-height: 1.6; }
-    ::-webkit-scrollbar { width: 6px; height: 6px; }
-    ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: var(--faint); border-radius: 3px; }
-    .api-config-row { display: flex; gap: 8px; align-items: center; padding: 10px 20px; border-bottom: 1px solid var(--border); background: var(--surface); }
+    .api-config-row { display: flex; gap: 8px; align-items: center; padding: 10px 20px; border-bottom: 1px solid var(--border); background: var(--surface); flex-shrink: 0; }
     .api-url-input { flex: 1; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--muted); font-family: var(--mono); font-size: 0.75rem; padding: 6px 10px; outline: none; }
     .api-url-input:focus { border-color: var(--primary); color: var(--text); }
     .api-url-label { font-size: 0.72rem; color: var(--faint); white-space: nowrap; }
-    @media (max-width: 768px) { main { grid-template-columns: 1fr; grid-template-rows: auto 1fr; } .panel-left { height: auto; max-height: 45dvh; } }
+
+    /* ============================================================
+       HISTORY DRAWER
+    ============================================================ */
+    .history-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 200; opacity: 0; pointer-events: none; transition: opacity 0.25s; }
+    .history-overlay.open { opacity: 1; pointer-events: all; }
+    .history-drawer {
+      position: fixed; top: 0; right: -420px; width: 420px; max-width: 100vw;
+      height: 100dvh; background: var(--surface); border-left: 1px solid var(--border);
+      z-index: 201; display: flex; flex-direction: column;
+      transition: right 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .history-drawer.open { right: 0; }
+    .history-header { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+    .history-title { font-size: 0.9rem; font-weight: 600; }
+    .history-close { background: none; border: none; color: var(--muted); cursor: pointer; padding: 4px; border-radius: var(--radius-sm); transition: color 0.15s; font-size: 1.1rem; line-height: 1; }
+    .history-close:hover { color: var(--text); }
+    .history-empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--faint); font-size: 0.83rem; gap: 8px; }
+    .history-list { flex: 1; overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+    .history-item {
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 14px; cursor: pointer;
+      transition: all 0.15s;
+    }
+    .history-item:hover { border-color: var(--primary); background: var(--primary-glow2); }
+    .history-item-name { font-size: 0.85rem; font-weight: 600; margin-bottom: 4px; }
+    .history-item-prompt { font-size: 0.76rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 8px; }
+    .history-item-meta { display: flex; gap: 8px; flex-wrap: wrap; }
+    .history-badge { font-size: 0.65rem; font-family: var(--mono); padding: 2px 8px; border-radius: 999px; border: 1px solid; }
+    .history-badge.ok { color: var(--success); border-color: rgba(74,222,128,0.3); background: rgba(74,222,128,0.08); }
+    .history-badge.fail { color: var(--error); border-color: rgba(248,113,113,0.3); background: rgba(248,113,113,0.08); }
+    .history-badge.neutral { color: var(--muted); border-color: var(--border); background: var(--surface); }
+    .history-clear { margin: 12px; }
+    .history-clear-btn { width: 100%; padding: 8px; background: none; border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--muted); font-size: 0.78rem; cursor: pointer; transition: all 0.15s; }
+    .history-clear-btn:hover { border-color: var(--error); color: var(--error); }
+
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--faint); border-radius: 3px; }
+
+    @media (max-width: 768px) {
+      #appMain { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+      .panel-left { max-height: 45dvh; }
+      .history-drawer { width: 100vw; }
+    }
   </style>
 </head>
 <body>
+
+  <!-- SHARED HEADER -->
   <header>
-    <div class="logo">
+    <div class="logo" onclick="showHome()">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <polyline points="16 18 22 12 16 6"/>
         <polyline points="8 6 2 12 8 18"/>
@@ -135,116 +357,393 @@
       <span class="logo-badge">v1.0</span>
     </div>
     <div class="header-right">
+      <button class="header-btn" id="historyBtn" onclick="toggleHistory()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        History
+        <span id="historyCount" style="display:none;background:var(--primary);color:#fff;border-radius:999px;padding:1px 7px;font-size:0.65rem;font-weight:700;">0</span>
+      </button>
+      <button class="header-btn" id="launchBtn" onclick="showApp()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        Launch App
+      </button>
       <div class="status-dot" id="statusDot"></div>
       <span class="status-label" id="statusLabel">Ready</span>
     </div>
   </header>
 
-  <main>
-    <div class="panel-left">
-      <div class="panel-section">
-        <div class="panel-label">Natural Language Prompt</div>
-        <textarea class="prompt-area" id="promptInput"
-          placeholder="Describe your app...&#10;&#10;e.g. Build a CRM with login, contacts, dashboard, role-based access, and premium plan with payments."
-        ></textarea>
-        <button class="compile-btn" id="compileBtn" onclick="runCompile()">
-          <div class="spinner" id="spinner"></div>
-          <span id="compileBtnText">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="display:inline;vertical-align:-2px;margin-right:4px"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-            Compile App
-          </span>
+  <!-- ============================================================
+       HOME VIEW
+  ============================================================ -->
+  <div id="homeView" class="view active">
+
+    <!-- HERO -->
+    <section class="hero">
+      <div class="hero-grid"></div>
+      <div class="hero-glow"></div>
+      <div class="hero-tag"><div class="hero-tag-dot"></div>AI-Powered Compiler Pipeline &bull; 6 Stages &bull; 5 Models</div>
+      <h1 class="hero-title">
+        Natural Language<br>
+        <span class="grad">to Working App Config</span><br>
+        <span style="color:var(--muted);font-size:0.7em;font-weight:400">in seconds</span>
+      </h1>
+      <p class="hero-sub">Describe any app in plain English. Our multi-stage AI compiler converts it into a strict, validated, executable configuration &mdash; UI schema, API schema, DB schema, auth rules, and more.</p>
+      <div class="hero-cta">
+        <button class="btn-primary" onclick="showApp()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          Try the Compiler
         </button>
+        <a class="btn-secondary" href="https://github.com/koyeliya2004/ai-compiler-system" target="_blank" rel="noopener">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"/></svg>
+          View on GitHub
+        </a>
       </div>
-      <div class="examples">
-        <div class="panel-label">Example Prompts</div>
-        <button class="example-chip" onclick="useExample(this)">Build a CRM with login, contacts, dashboard, role-based access, and premium plan with payments. Admins can see analytics.</button>
-        <button class="example-chip" onclick="useExample(this)">E-commerce platform with product listings, cart, checkout, order tracking, admin dashboard, and Stripe payments.</button>
-        <button class="example-chip" onclick="useExample(this)">Project management tool like Jira: sprints, tasks, comments, team roles, kanban board, and reporting.</button>
-        <button class="example-chip" onclick="useExample(this)">SaaS analytics dashboard with user auth, event tracking, funnel analysis, and CSV export.</button>
-        <button class="example-chip" onclick="useExample(this)">Build a social platform with profiles, posts, likes, comments, follow system, and moderation tools.</button>
+
+      <!-- pipeline demo -->
+      <div class="pipeline-demo">
+        <div class="pd-step">
+          <div class="pd-icon">&#x1F9E0;</div>
+          <div class="pd-label">Intent</div>
+          <div class="pd-model">gpt-oss-120b</div>
+        </div>
+        <div class="pd-arrow">&#x2192;</div>
+        <div class="pd-step">
+          <div class="pd-icon">&#x1F3D7;</div>
+          <div class="pd-label">Design</div>
+          <div class="pd-model">qwen3-32b</div>
+        </div>
+        <div class="pd-arrow">&#x2192;</div>
+        <div class="pd-step">
+          <div class="pd-icon">&#x1F4CB;</div>
+          <div class="pd-label">Schemas</div>
+          <div class="pd-model">llama-4-scout</div>
+        </div>
+        <div class="pd-arrow">&#x2192;</div>
+        <div class="pd-step">
+          <div class="pd-icon">&#x1F527;</div>
+          <div class="pd-label">Refine</div>
+          <div class="pd-model">gpt-oss-20b</div>
+        </div>
+        <div class="pd-arrow">&#x2192;</div>
+        <div class="pd-step">
+          <div class="pd-icon">&#x2705;</div>
+          <div class="pd-label">Validate</div>
+          <div class="pd-model">llama-3.1-8b</div>
+        </div>
+        <div class="pd-arrow">&#x2192;</div>
+        <div class="pd-step">
+          <div class="pd-icon">&#x1F680;</div>
+          <div class="pd-label">Execute</div>
+          <div class="pd-model">gpt-oss-120b</div>
+        </div>
       </div>
+    </section>
+
+    <!-- FEATURES -->
+    <section class="section">
+      <div class="section-tag">How it works</div>
+      <h2 class="section-title">A compiler, not a chatbot</h2>
+      <p class="section-sub">Unlike a single prompt to an LLM, this system routes your intent through 6 specialised stages, each with its own model, validation, and repair layer.</p>
+      <div class="features-grid">
+        <div class="feature-card">
+          <div class="feature-icon">&#x1F9E0;</div>
+          <div class="feature-title">Stage 1 &mdash; Intent Extraction</div>
+          <div class="feature-desc">Parses your natural language description into a structured intermediate form: entities, roles, features, integrations, and assumptions for vague inputs.</div>
+          <div class="feature-model"><div class="feature-model-dot"></div>openai/gpt-oss-120b</div>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">&#x1F3D7;</div>
+          <div class="feature-title">Stage 2 &mdash; System Design</div>
+          <div class="feature-desc">Converts structured intent into a full app architecture: pages, routes, entity relationships, role permissions, business flows, and rules.</div>
+          <div class="feature-model"><div class="feature-model-dot"></div>qwen/qwen3-32b</div>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">&#x1F4CB;</div>
+          <div class="feature-title">Stage 3 &mdash; Schema Generation</div>
+          <div class="feature-desc">Generates four strict schemas simultaneously: UI config, REST API config, full database schema (with foreign keys), and auth/JWT configuration.</div>
+          <div class="feature-model"><div class="feature-model-dot"></div>meta-llama/llama-4-scout</div>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">&#x1F527;</div>
+          <div class="feature-title">Stage 4 &mdash; Refinement</div>
+          <div class="feature-desc">Cross-validates all layers and fixes inconsistencies: missing DB columns, unregistered API routes, auth guard gaps, and role mismatches.</div>
+          <div class="feature-model"><div class="feature-model-dot"></div>openai/gpt-oss-20b</div>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">&#x1F6E1;</div>
+          <div class="feature-title">Stage 5 &mdash; Validation &amp; Repair</div>
+          <div class="feature-desc">Structurally validates every field. If invalid JSON or missing keys are found, it repairs specific parts intelligently &mdash; no blind full retry.</div>
+          <div class="feature-model"><div class="feature-model-dot"></div>llama-3.1-8b-instant</div>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">&#x1F680;</div>
+          <div class="feature-title">Stage 6 &mdash; Execution Check</div>
+          <div class="feature-desc">Produces an OpenAPI stub, SQL migration preview, and a simulated boot log proving the output can power a real application.</div>
+          <div class="feature-model"><div class="feature-model-dot"></div>openai/gpt-oss-120b</div>
+        </div>
+      </div>
+
+      <div class="stats-row">
+        <div class="stat"><div class="stat-num">6</div><div class="stat-label">Pipeline stages</div></div>
+        <div class="stat"><div class="stat-num">5</div><div class="stat-label">Specialist models</div></div>
+        <div class="stat"><div class="stat-num">4</div><div class="stat-label">Schema layers generated</div></div>
+        <div class="stat"><div class="stat-num">0</div><div class="stat-label">Manual fixes needed</div></div>
+      </div>
+    </section>
+
+    <!-- HOW TO USE -->
+    <section class="section" style="padding-top:0">
+      <div class="section-tag">Getting Started</div>
+      <h2 class="section-title">Three steps to a full app config</h2>
+      <div class="how-steps">
+        <div class="how-step">
+          <div class="how-num">01</div>
+          <div class="how-content">
+            <div class="how-title">Write your app description</div>
+            <div class="how-desc">Use plain English. Be as detailed or vague as you want. The system makes reasonable assumptions for missing details and documents them.</div>
+            <div class="how-badge">e.g. &ldquo;Build a CRM with login, contacts, role-based access and payments&rdquo;</div>
+          </div>
+        </div>
+        <div class="how-step">
+          <div class="how-num">02</div>
+          <div class="how-content">
+            <div class="how-title">Click Compile App</div>
+            <div class="how-desc">The 6-stage pipeline runs in sequence. Each stage is handled by a different AI model specialised for that task. Watch the stages light up in real-time.</div>
+            <div class="how-badge">Average time: 15&ndash;40 seconds</div>
+          </div>
+        </div>
+        <div class="how-step">
+          <div class="how-num">03</div>
+          <div class="how-content">
+            <div class="how-title">Review and export the output</div>
+            <div class="how-desc">Explore each schema layer (UI, API, DB, Auth), check validation results, and see the OpenAPI stub + SQL migration preview in the Runtime tab.</div>
+            <div class="how-badge">All output is valid, copy-able JSON</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- CTA -->
+    <div class="cta-section">
+      <div class="section-tag">Ready?</div>
+      <h2 class="section-title">Start compiling your app now</h2>
+      <p style="color:var(--muted);margin:16px auto 36px;max-width:440px;line-height:1.7;font-size:0.95rem">No setup required. Just describe what you want to build.</p>
+      <button class="btn-primary" style="margin:0 auto" onclick="showApp()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        Open the Compiler
+      </button>
     </div>
 
-    <div class="panel-right">
-      <div class="api-config-row">
-        <span class="api-url-label">API URL:</span>
-        <input class="api-url-input" id="apiUrl" placeholder="Auto-detected...">
+    <footer>
+      <span>AI Compiler System &mdash; Demo Task</span>
+      <span>Built with FastAPI + Groq + 5 models</span>
+    </footer>
+  </div>
+
+  <!-- ============================================================
+       APP VIEW
+  ============================================================ -->
+  <div id="appView" class="view">
+    <div id="appMain">
+      <div class="panel-left">
+        <div class="panel-section">
+          <div class="panel-label">Natural Language Prompt</div>
+          <textarea class="prompt-area" id="promptInput"
+            placeholder="Describe your app...&#10;&#10;e.g. Build a CRM with login, contacts, dashboard, role-based access, and premium plan with payments."
+          ></textarea>
+          <button class="compile-btn" id="compileBtn" onclick="runCompile()">
+            <div class="spinner" id="spinner"></div>
+            <span id="compileBtnText">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="display:inline;vertical-align:-2px;margin-right:4px"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+              Compile App
+            </span>
+          </button>
+        </div>
+        <div class="examples">
+          <div class="panel-label">Example Prompts</div>
+          <button class="example-chip" onclick="useExample(this)">Build a CRM with login, contacts, dashboard, role-based access, and premium plan with payments. Admins can see analytics.</button>
+          <button class="example-chip" onclick="useExample(this)">E-commerce platform with product listings, cart, checkout, order tracking, admin dashboard, and Stripe payments.</button>
+          <button class="example-chip" onclick="useExample(this)">Project management tool like Jira: sprints, tasks, comments, team roles, kanban board, and reporting.</button>
+          <button class="example-chip" onclick="useExample(this)">SaaS analytics dashboard with user auth, event tracking, funnel analysis, and CSV export.</button>
+          <button class="example-chip" onclick="useExample(this)">Build a social platform with profiles, posts, likes, comments, follow system, and moderation tools.</button>
+        </div>
       </div>
-      <div class="pipeline-stages" id="pipelineStages">
-        <div class="stage-pill" id="s1"><div class="stage-dot"></div>1. Intent</div>
-        <div class="stage-pill" id="s2"><div class="stage-dot"></div>2. Design</div>
-        <div class="stage-pill" id="s3"><div class="stage-dot"></div>3. Schemas</div>
-        <div class="stage-pill" id="s4"><div class="stage-dot"></div>4. Refine</div>
-        <div class="stage-pill" id="s5"><div class="stage-dot"></div>5. Validate</div>
-        <div class="stage-pill" id="s6"><div class="stage-dot"></div>6. Execute</div>
-      </div>
-      <div class="metrics-bar" id="metricsBar" style="display:none">
-        <div class="metric"><div class="metric-label">Status</div><div class="metric-value" id="mStatus">—</div></div>
-        <div class="metric"><div class="metric-label">Latency</div><div class="metric-value" id="mLatency">—</div></div>
-        <div class="metric"><div class="metric-label">Pages</div><div class="metric-value" id="mPages">—</div></div>
-        <div class="metric"><div class="metric-label">Endpoints</div><div class="metric-value" id="mEndpoints">—</div></div>
-        <div class="metric"><div class="metric-label">DB Tables</div><div class="metric-value" id="mTables">—</div></div>
-        <div class="metric"><div class="metric-label">Executable</div><div class="metric-value" id="mExec">—</div></div>
-        <div class="metric"><div class="metric-label">Repairs</div><div class="metric-value" id="mRepairs">—</div></div>
-      </div>
-      <div class="tab-bar">
-        <button class="tab active" onclick="switchTab('output', this)">Full Output</button>
-        <button class="tab" onclick="switchTab('ui', this)">UI Schema</button>
-        <button class="tab" onclick="switchTab('api', this)">API Schema</button>
-        <button class="tab" onclick="switchTab('db', this)">DB Schema</button>
-        <button class="tab" onclick="switchTab('auth', this)">Auth Config</button>
-        <button class="tab" onclick="switchTab('validation', this)">Validation</button>
-        <button class="tab" onclick="switchTab('runtime', this)">Runtime</button>
-      </div>
-      <div class="output-area" id="outputArea">
-        <div class="empty-state">
-          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-            <polyline points="16 18 22 12 16 6"/>
-            <polyline points="8 6 2 12 8 18"/>
-          </svg>
-          <p>Enter a prompt and click <strong>Compile App</strong> to generate your full app configuration.</p>
+
+      <div class="panel-right">
+        <div class="api-config-row">
+          <span class="api-url-label">API URL:</span>
+          <input class="api-url-input" id="apiUrl" placeholder="Auto-detected...">
+        </div>
+        <div class="pipeline-stages" id="pipelineStages">
+          <div class="stage-pill" id="s1"><div class="stage-dot"></div>1. Intent</div>
+          <div class="stage-pill" id="s2"><div class="stage-dot"></div>2. Design</div>
+          <div class="stage-pill" id="s3"><div class="stage-dot"></div>3. Schemas</div>
+          <div class="stage-pill" id="s4"><div class="stage-dot"></div>4. Refine</div>
+          <div class="stage-pill" id="s5"><div class="stage-dot"></div>5. Validate</div>
+          <div class="stage-pill" id="s6"><div class="stage-dot"></div>6. Execute</div>
+        </div>
+        <div class="metrics-bar" id="metricsBar" style="display:none">
+          <div class="metric"><div class="metric-label">Status</div><div class="metric-value" id="mStatus">-</div></div>
+          <div class="metric"><div class="metric-label">Latency</div><div class="metric-value" id="mLatency">-</div></div>
+          <div class="metric"><div class="metric-label">Pages</div><div class="metric-value" id="mPages">-</div></div>
+          <div class="metric"><div class="metric-label">Endpoints</div><div class="metric-value" id="mEndpoints">-</div></div>
+          <div class="metric"><div class="metric-label">DB Tables</div><div class="metric-value" id="mTables">-</div></div>
+          <div class="metric"><div class="metric-label">Executable</div><div class="metric-value" id="mExec">-</div></div>
+          <div class="metric"><div class="metric-label">Repairs</div><div class="metric-value" id="mRepairs">-</div></div>
+        </div>
+        <div class="tab-bar">
+          <button class="tab active" onclick="switchTab('output', this)">Full Output</button>
+          <button class="tab" onclick="switchTab('ui', this)">UI Schema</button>
+          <button class="tab" onclick="switchTab('api', this)">API Schema</button>
+          <button class="tab" onclick="switchTab('db', this)">DB Schema</button>
+          <button class="tab" onclick="switchTab('auth', this)">Auth Config</button>
+          <button class="tab" onclick="switchTab('validation', this)">Validation</button>
+          <button class="tab" onclick="switchTab('runtime', this)">Runtime</button>
+        </div>
+        <div class="output-area" id="outputArea">
+          <div class="empty-state">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <polyline points="16 18 22 12 16 6"/>
+              <polyline points="8 6 2 12 8 18"/>
+            </svg>
+            <p>Enter a prompt and click <strong>Compile App</strong> to generate your full app configuration.</p>
+          </div>
         </div>
       </div>
     </div>
-  </main>
+  </div>
+
+  <!-- HISTORY DRAWER -->
+  <div class="history-overlay" id="historyOverlay" onclick="toggleHistory()"></div>
+  <div class="history-drawer" id="historyDrawer">
+    <div class="history-header">
+      <div class="history-title">Compile History</div>
+      <button class="history-close" onclick="toggleHistory()">&#x2715;</button>
+    </div>
+    <div id="historyBody"><div class="history-empty"><span style="font-size:2rem">&#x1F4C2;</span><span>No history yet</span><span style="font-size:0.75rem;color:var(--faint)">Run a compile to see it here</span></div></div>
+    <div class="history-clear"><button class="history-clear-btn" onclick="clearHistory()">Clear History</button></div>
+  </div>
 
   <script>
+    // ── View routing ──────────────────────────────────────────────
+    function showHome() {
+      document.getElementById('homeView').classList.add('active');
+      document.getElementById('appView').classList.remove('active');
+      document.getElementById('launchBtn').style.display = '';
+    }
+    function showApp() {
+      document.getElementById('homeView').classList.remove('active');
+      document.getElementById('appView').classList.add('active');
+      document.getElementById('launchBtn').style.display = 'none';
+      document.getElementById('apiUrl').value = detectApiUrl();
+    }
+
     function detectApiUrl() {
       const loc = window.location;
       if (loc.protocol === 'file:') return 'http://localhost:8000';
       return loc.origin;
     }
-    document.getElementById('apiUrl').value = detectApiUrl();
 
-    let lastResult = null;
-    let currentTab = 'output';
-    const STAGES = ['s1','s2','s3','s4','s5','s6'];
-    const STAGE_NAMES = ['1. Intent','2. Design','3. Schemas','4. Refine','5. Validate','6. Execute'];
+    // ── History ───────────────────────────────────────────────────
+    var historyData = [];
+
+    function toggleHistory() {
+      var drawer = document.getElementById('historyDrawer');
+      var overlay = document.getElementById('historyOverlay');
+      var btn = document.getElementById('historyBtn');
+      var open = drawer.classList.toggle('open');
+      overlay.classList.toggle('open', open);
+      btn.classList.toggle('active', open);
+    }
+
+    function addToHistory(result, prompt) {
+      var item = {
+        id: Date.now(),
+        ts: new Date().toLocaleTimeString(),
+        prompt: prompt,
+        app_name: result.app_name || 'App',
+        success: result.success,
+        total_ms: result.meta && result.meta.total_ms,
+        is_executable: result.runtime && result.runtime.is_executable,
+        data: result
+      };
+      historyData.unshift(item);
+      if (historyData.length > 20) historyData.pop();
+      renderHistory();
+    }
+
+    function renderHistory() {
+      var count = historyData.length;
+      var badge = document.getElementById('historyCount');
+      badge.textContent = count;
+      badge.style.display = count ? 'inline' : 'none';
+
+      var body = document.getElementById('historyBody');
+      if (!count) {
+        body.innerHTML = '<div class="history-empty"><span style="font-size:2rem">&#x1F4C2;</span><span>No history yet</span><span style="font-size:0.75rem;color:var(--faint)">Run a compile to see it here</span></div>';
+        return;
+      }
+      var html = '<div class="history-list">';
+      historyData.forEach(function(item, i) {
+        html += '<div class="history-item" onclick="loadHistory(' + i + ')">';
+        html += '<div class="history-item-name">' + escHtml(item.app_name) + '</div>';
+        html += '<div class="history-item-prompt">' + escHtml(item.prompt) + '</div>';
+        html += '<div class="history-item-meta">';
+        html += '<span class="history-badge ' + (item.success ? 'ok' : 'fail') + '">' + (item.success ? 'Valid' : 'Warn') + '</span>';
+        html += '<span class="history-badge ' + (item.is_executable ? 'ok' : 'fail') + '">' + (item.is_executable ? 'Executable' : 'Not Executable') + '</span>';
+        if (item.total_ms) html += '<span class="history-badge neutral">' + item.total_ms + 'ms</span>';
+        html += '<span class="history-badge neutral">' + item.ts + '</span>';
+        html += '</div></div>';
+      });
+      html += '</div>';
+      body.innerHTML = html;
+    }
+
+    function loadHistory(i) {
+      var item = historyData[i];
+      if (!item) return;
+      lastResult = item.data;
+      document.getElementById('promptInput').value = item.prompt;
+      showApp();
+      toggleHistory();
+      updateMetrics(lastResult);
+      renderTab(currentTab);
+      setStatus('Loaded from history', '#67e8f9');
+    }
+
+    function clearHistory() {
+      historyData = [];
+      renderHistory();
+    }
+
+    // ── Compiler logic ────────────────────────────────────────────
+    var lastResult = null;
+    var currentTab = 'output';
+    var STAGES = ['s1','s2','s3','s4','s5','s6'];
+    var STAGE_NAMES = ['1. Intent','2. Design','3. Schemas','4. Refine','5. Validate','6. Execute'];
 
     function useExample(el) { document.getElementById('promptInput').value = el.textContent.trim(); }
 
     function setStatus(text, color) {
       document.getElementById('statusLabel').textContent = text;
       document.getElementById('statusDot').style.background = color;
-      document.getElementById('statusDot').style.boxShadow = `0 0 6px ${color}`;
+      document.getElementById('statusDot').style.boxShadow = '0 0 6px ' + color;
     }
 
     function setStage(index, state) {
-      const el = document.getElementById(STAGES[index]);
-      el.className = `stage-pill ${state}`;
-      el.innerHTML = `<div class="stage-dot"></div>${STAGE_NAMES[index]}`;
+      var el = document.getElementById(STAGES[index]);
+      el.className = 'stage-pill ' + state;
+      el.innerHTML = '<div class="stage-dot"></div>' + STAGE_NAMES[index];
     }
-
-    function resetStages() { STAGES.forEach((_, i) => setStage(i, '')); }
+    function resetStages() { STAGES.forEach(function(_, i) { setStage(i, ''); }); }
 
     async function runCompile() {
-      const prompt = document.getElementById('promptInput').value.trim();
+      var prompt = document.getElementById('promptInput').value.trim();
       if (!prompt) { alert('Please enter a prompt.'); return; }
 
-      const apiUrl = document.getElementById('apiUrl').value.trim().replace(/\/$/, '');
-      const btn = document.getElementById('compileBtn');
-      const spinner = document.getElementById('spinner');
-      const btnText = document.getElementById('compileBtnText');
+      var apiUrl = document.getElementById('apiUrl').value.trim().replace(/\/$/, '');
+      var btn = document.getElementById('compileBtn');
+      var spinner = document.getElementById('spinner');
+      var btnText = document.getElementById('compileBtnText');
 
       btn.disabled = true;
       spinner.style.display = 'block';
@@ -253,34 +752,33 @@
       resetStages();
       document.getElementById('metricsBar').style.display = 'none';
 
-      let stageTimer = 0;
-      STAGES.forEach((_, i) => {
-        setTimeout(() => setStage(i, 'active'), stageTimer);
+      var stageTimer = 0;
+      STAGES.forEach(function(_, i) {
+        setTimeout(function() { setStage(i, 'active'); }, stageTimer);
         stageTimer += 900;
       });
 
       try {
-        const res = await fetch(`${apiUrl}/compile`, {
+        var res = await fetch(apiUrl + '/compile', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ prompt })
+          body: JSON.stringify({ prompt: prompt })
         });
-        if (!res.ok) { const err = await res.text(); throw new Error(`HTTP ${res.status}: ${err}`); }
-        const data = await res.json();
+        if (!res.ok) { var err = await res.text(); throw new Error('HTTP ' + res.status + ': ' + err); }
+        var data = await res.json();
         lastResult = data;
-        STAGES.forEach((_, i) => setStage(i, 'done'));
+        STAGES.forEach(function(_, i) { setStage(i, 'done'); });
         setStatus(data.success ? 'Success' : 'Compiled with warnings', data.success ? '#4ade80' : '#fb923c');
         updateMetrics(data);
         renderTab(currentTab);
-      } catch (err) {
-        STAGES.forEach((_, i) => setStage(i, 'error'));
+        addToHistory(data, prompt);
+      } catch(err) {
+        STAGES.forEach(function(_, i) { setStage(i, 'error'); });
         setStatus('Error', '#f87171');
-        document.getElementById('outputArea').innerHTML = `
-          <div class="validation-list">
-            <div class="validation-item fail">❌ ${escHtml(err.message)}<br><br>
-            API URL in use: <strong>${escHtml(apiUrl)}</strong><br>
-            If running locally: <code>uvicorn api.app:app --reload</code></div>
-          </div>`;
+        document.getElementById('outputArea').innerHTML =
+          '<div class="validation-list"><div class="validation-item fail">&#x274C; ' + escHtml(err.message) +
+          '<br><br>API URL in use: <strong>' + escHtml(apiUrl) + '</strong><br>' +
+          'If running locally: <code>uvicorn api.app:app --reload</code></div></div>';
       } finally {
         btn.disabled = false;
         spinner.style.display = 'none';
@@ -289,146 +787,132 @@
     }
 
     function updateMetrics(data) {
-      // ✅ FIX: read from data.meta and data.runtime (not data.output.metadata)
-      const meta    = data.meta    || {};
-      const runtime = data.runtime || {};
-      const schemas = data.output?.schemas || {};
-
+      var meta = data.meta || {};
+      var runtime = data.runtime || {};
+      var schemas = (data.output && data.output.schemas) || {};
       document.getElementById('metricsBar').style.display = 'flex';
-
-      const mStatus = document.getElementById('mStatus');
-      mStatus.textContent = data.success ? '✅ OK' : '⚠️ Warn';
+      var mStatus = document.getElementById('mStatus');
+      mStatus.textContent = data.success ? 'OK' : 'Warn';
       mStatus.className = 'metric-value ' + (data.success ? 'success' : 'warn');
-
-      // Latency from meta.total_ms
-      const ms = meta.total_ms;
-      document.getElementById('mLatency').textContent = ms ? `${ms}ms` : '—';
-
-      document.getElementById('mPages').textContent =
-        schemas.ui_config?.pages?.length ?? '—';
-      document.getElementById('mEndpoints').textContent =
-        schemas.api_config?.endpoints?.length ?? '—';
-      document.getElementById('mTables').textContent =
-        schemas.db_schema?.tables?.length ?? '—';
-
-      // ✅ FIX: executable lives in data.runtime.is_executable
-      const isExec = runtime.is_executable === true;
-      const execEl = document.getElementById('mExec');
-      execEl.textContent = isExec ? '✅ Yes' : '❌ No';
+      var ms = meta.total_ms;
+      document.getElementById('mLatency').textContent = ms ? ms + 'ms' : '-';
+      document.getElementById('mPages').textContent = (schemas.ui_config && schemas.ui_config.pages && schemas.ui_config.pages.length) || '-';
+      document.getElementById('mEndpoints').textContent = (schemas.api_config && schemas.api_config.endpoints && schemas.api_config.endpoints.length) || '-';
+      document.getElementById('mTables').textContent = (schemas.db_schema && schemas.db_schema.tables && schemas.db_schema.tables.length) || '-';
+      var isExec = runtime.is_executable === true;
+      var execEl = document.getElementById('mExec');
+      execEl.textContent = isExec ? 'Yes' : 'No';
       execEl.className = 'metric-value ' + (isExec ? 'success' : 'error');
-
-      // Repairs: count from validation
-      const repairCount = (data.validation?.errors?.length || 0);
-      document.getElementById('mRepairs').textContent = repairCount;
+      document.getElementById('mRepairs').textContent = (data.validation && data.validation.errors && data.validation.errors.length) || 0;
     }
 
     function switchTab(tab, el) {
       currentTab = tab;
-      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('.tab').forEach(function(t) { t.classList.remove('active'); });
       el.classList.add('active');
       if (lastResult) renderTab(tab);
     }
 
     function renderTab(tab) {
-      const area = document.getElementById('outputArea');
+      var area = document.getElementById('outputArea');
       if (!lastResult) return;
-      let data;
+      var data;
       switch (tab) {
         case 'output': data = lastResult.output; break;
-        case 'ui':     data = lastResult.output?.schemas?.ui_config; break;
-        case 'api':    data = lastResult.output?.schemas?.api_config; break;
-        case 'db':     data = lastResult.output?.schemas?.db_schema; break;
-        case 'auth':   data = lastResult.output?.schemas?.auth_config; break;
+        case 'ui':   data = lastResult.output && lastResult.output.schemas && lastResult.output.schemas.ui_config; break;
+        case 'api':  data = lastResult.output && lastResult.output.schemas && lastResult.output.schemas.api_config; break;
+        case 'db':   data = lastResult.output && lastResult.output.schemas && lastResult.output.schemas.db_schema; break;
+        case 'auth': data = lastResult.output && lastResult.output.schemas && lastResult.output.schemas.auth_config; break;
         case 'validation': renderValidation(lastResult); return;
         case 'runtime':    renderRuntime(lastResult); return;
       }
       if (!data) { area.innerHTML = '<div class="empty-state"><p>No data for this tab.</p></div>'; return; }
-      area.innerHTML = `<button class="copy-btn" onclick="copyJSON()">Copy JSON</button><div class="json-container"><div class="json-tree" id="jsonTree"></div></div>`;
+      area.innerHTML = '<button class="copy-btn" onclick="copyJSON()">Copy JSON</button><div class="json-container"><div class="json-tree" id="jsonTree"></div></div>';
       document.getElementById('jsonTree').innerHTML = renderJSON(data, 0);
     }
 
     function renderValidation(data) {
-      const area = document.getElementById('outputArea');
-      const v = data.validation || {};
-      const r = data.runtime || {};
-      let html = '<div class="validation-list">';
-      html += `<div class="validation-item ${v.valid ? 'ok' : 'fail'}">${v.valid ? '✅' : '❌'} Schema Validation: ${v.valid ? 'PASSED' : 'FAILED'}${v.errors?.length ? '<br>' + v.errors.map(e => `&nbsp;&nbsp;└ ${escHtml(e)}`).join('<br>') : ''}</div>`;
-      html += `<div class="validation-item ${r.is_executable ? 'ok' : 'fail'}">${r.is_executable ? '✅' : '❌'} Execution Readiness: ${r.is_executable ? 'READY' : 'NOT READY'}${r.issues?.length ? '<br>' + r.issues.map(i => `&nbsp;&nbsp;└ ${escHtml(i)}`).join('<br>') : ''}</div>`;
-      if (v.warnings?.length) html += `<div class="validation-item warn">⚠️ Warnings:<br>${v.warnings.map(w => escHtml(w)).join('<br>')}</div>`;
-      const meta = data.meta || {};
-      if (meta.assumptions?.length) html += `<div class="validation-item warn">📌 Assumptions:<br>${meta.assumptions.map(a => escHtml(a)).join('<br>')}</div>`;
+      var area = document.getElementById('outputArea');
+      var v = data.validation || {};
+      var r = data.runtime || {};
+      var html = '<div class="validation-list">';
+      html += '<div class="validation-item ' + (v.valid ? 'ok' : 'fail') + '">' + (v.valid ? '&#x2705;' : '&#x274C;') + ' Schema Validation: ' + (v.valid ? 'PASSED' : 'FAILED') + (v.errors && v.errors.length ? '<br>' + v.errors.map(function(e){return '&nbsp;&nbsp;- ' + escHtml(e);}).join('<br>') : '') + '</div>';
+      html += '<div class="validation-item ' + (r.is_executable ? 'ok' : 'fail') + '">' + (r.is_executable ? '&#x2705;' : '&#x274C;') + ' Execution Readiness: ' + (r.is_executable ? 'READY' : 'NOT READY') + (r.issues && r.issues.length ? '<br>' + r.issues.map(function(i){return '&nbsp;&nbsp;- ' + escHtml(i);}).join('<br>') : '') + '</div>';
+      if (v.warnings && v.warnings.length) html += '<div class="validation-item warn">&#x26A0; Warnings:<br>' + v.warnings.map(function(w){return escHtml(w);}).join('<br>') + '</div>';
+      var meta = data.meta || {};
+      if (meta.assumptions && meta.assumptions.length) html += '<div class="validation-item warn">&#x1F4CC; Assumptions:<br>' + meta.assumptions.map(function(a){return escHtml(a);}).join('<br>') + '</div>';
       html += '</div>';
       area.innerHTML = html;
     }
 
     function renderRuntime(data) {
-      const area = document.getElementById('outputArea');
-      const r = data.runtime?.preview || {};
-      const art = data.artifacts || {};
-      let html = '<div class="validation-list">';
-      if (r.boot_log?.length) {
-        html += `<div class="validation-item ok"><strong>Boot Log:</strong><br>${r.boot_log.map(l => escHtml(l)).join('<br>')}</div>`;
+      var area = document.getElementById('outputArea');
+      var r = (data.runtime && data.runtime.preview) || {};
+      var art = data.artifacts || {};
+      var html = '<div class="validation-list">';
+      if (r.boot_log && r.boot_log.length) {
+        html += '<div class="validation-item ok"><strong>Boot Log:</strong><br>' + r.boot_log.map(function(l){return escHtml(l);}).join('<br>') + '</div>';
       }
       if (art.openapi_stub) {
-        const paths = Object.entries(art.openapi_stub.paths || {});
+        var paths = Object.entries(art.openapi_stub.paths || {});
         if (paths.length) {
-          html += `<div class="validation-item ok"><strong>OpenAPI Endpoints (${paths.length}):</strong><br>`;
-          paths.forEach(([path, methods]) => {
-            Object.keys(methods).forEach(m => { html += `&nbsp;&nbsp;└ ${m.toUpperCase()} ${escHtml(path)}<br>`; });
+          html += '<div class="validation-item ok"><strong>OpenAPI Endpoints (' + paths.length + '):</strong><br>';
+          paths.forEach(function(entry) {
+            Object.keys(entry[1]).forEach(function(m) { html += '&nbsp;&nbsp;- ' + m.toUpperCase() + ' ' + escHtml(entry[0]) + '<br>'; });
           });
           html += '</div>';
         }
       }
       if (art.db_migration_preview) {
-        html += `<div class="validation-item ok"><strong>SQL Migration Preview:</strong><br><pre style="font-size:0.72rem;margin-top:6px;white-space:pre-wrap">${escHtml(art.db_migration_preview)}</pre></div>`;
+        html += '<div class="validation-item ok"><strong>SQL Migration Preview:</strong><br><pre style="font-size:0.72rem;margin-top:6px;white-space:pre-wrap">' + escHtml(art.db_migration_preview) + '</pre></div>';
       }
       html += '</div>';
       area.innerHTML = html;
     }
 
     function renderJSON(obj, depth) {
-      if (obj === null) return `<span class="json-null">null</span>`;
-      if (typeof obj === 'boolean') return `<span class="json-bool">${obj}</span>`;
-      if (typeof obj === 'number') return `<span class="json-number">${obj}</span>`;
-      if (typeof obj === 'string') return `<span class="json-string">"${escHtml(obj)}"</span>`;
+      if (obj === null) return '<span class="json-null">null</span>';
+      if (typeof obj === 'boolean') return '<span class="json-bool">' + obj + '</span>';
+      if (typeof obj === 'number') return '<span class="json-number">' + obj + '</span>';
+      if (typeof obj === 'string') return '<span class="json-string">"' + escHtml(obj) + '"</span>';
       if (Array.isArray(obj)) {
-        if (obj.length === 0) return `<span class="json-brace">[]</span>`;
-        const id = 'j' + Math.random().toString(36).slice(2);
-        return `<span class="json-toggle json-brace" onclick="toggleNode('${id}')">[${obj.length}]</span><div id="${id}">${obj.map(v => `<div style="margin-left:16px">${renderJSON(v, depth+1)}</div>`).join('')}</div>`;
+        if (!obj.length) return '<span class="json-brace">[]</span>';
+        var id = 'j' + Math.random().toString(36).slice(2);
+        return '<span class="json-toggle json-brace" onclick="toggleNode(\'' + id + '\')">[' + obj.length + ']</span><div id="' + id + '">' + obj.map(function(v){return '<div style="margin-left:16px">' + renderJSON(v, depth+1) + '</div>';}).join('') + '</div>';
       }
       if (typeof obj === 'object') {
-        const keys = Object.keys(obj);
-        if (keys.length === 0) return `<span class="json-brace">{}</span>`;
-        const id = 'j' + Math.random().toString(36).slice(2);
-        return `<span class="json-toggle json-brace" onclick="toggleNode('${id}')">{${keys.length}}</span><div id="${id}">${keys.map(k => `<div style="margin-left:16px"><span class="json-key">"${escHtml(k)}"</span><span class="json-brace">: </span>${renderJSON(obj[k], depth+1)}</div>`).join('')}</div>`;
+        var keys = Object.keys(obj);
+        if (!keys.length) return '<span class="json-brace">{}</span>';
+        var id2 = 'j' + Math.random().toString(36).slice(2);
+        return '<span class="json-toggle json-brace" onclick="toggleNode(\'' + id2 + '\')">{' + keys.length + '}</span><div id="' + id2 + '">' + keys.map(function(k){return '<div style="margin-left:16px"><span class="json-key">"' + escHtml(k) + '"</span><span class="json-brace">: </span>' + renderJSON(obj[k], depth+1) + '</div>';}).join('') + '</div>';
       }
       return escHtml(String(obj));
     }
 
-    function toggleNode(id) { const el = document.getElementById(id); if (el) el.classList.toggle('json-collapsed'); }
+    function toggleNode(id) { var el = document.getElementById(id); if (el) el.classList.toggle('json-collapsed'); }
 
     function copyJSON() {
       if (!lastResult) return;
-      let data;
+      var data;
       switch (currentTab) {
         case 'output': data = lastResult.output; break;
-        case 'ui':   data = lastResult.output?.schemas?.ui_config; break;
-        case 'api':  data = lastResult.output?.schemas?.api_config; break;
-        case 'db':   data = lastResult.output?.schemas?.db_schema; break;
-        case 'auth': data = lastResult.output?.schemas?.auth_config; break;
+        case 'ui':   data = lastResult.output && lastResult.output.schemas && lastResult.output.schemas.ui_config; break;
+        case 'api':  data = lastResult.output && lastResult.output.schemas && lastResult.output.schemas.api_config; break;
+        case 'db':   data = lastResult.output && lastResult.output.schemas && lastResult.output.schemas.db_schema; break;
+        case 'auth': data = lastResult.output && lastResult.output.schemas && lastResult.output.schemas.auth_config; break;
         default:     data = lastResult;
       }
       navigator.clipboard.writeText(JSON.stringify(data, null, 2));
-      const btn = document.querySelector('.copy-btn');
+      var btn = document.querySelector('.copy-btn');
       btn.textContent = 'Copied!';
-      setTimeout(() => btn.textContent = 'Copy JSON', 1500);
+      setTimeout(function() { btn.textContent = 'Copy JSON'; }, 1500);
     }
 
     function escHtml(str) {
       return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     }
 
-    document.addEventListener('keydown', e => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') runCompile(); });
+    document.addEventListener('keydown', function(e) { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') runCompile(); });
   </script>
 </body>
 </html>
