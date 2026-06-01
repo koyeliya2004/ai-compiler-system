@@ -1,61 +1,44 @@
 """
-Stage 4 — Refinement Layer
-Cross-layer consistency enforcement.
+Stage 4 — Refinement & Cross-Layer Consistency
+Model: openai/gpt-oss-20b (fast + smart for consistency checks)
 """
-import json
 import logging
+from llm_client import chat_completion_json
 
 logger = logging.getLogger(__name__)
 
-SYSTEM_PROMPT = """
-You are a strict schema consistency enforcer. Fix ALL cross-layer inconsistencies in the schemas JSON.
-Return the FIXED schemas JSON with keys: ui_config, api_config, db_schema, auth_config.
-Rules:
-1. Every role in endpoint allowed_roles must exist in auth_config.roles
-2. Every DB table must have an id primary key column
-3. Endpoints that write data (POST/PUT/PATCH/DELETE) must have auth_required=true
-4. Every UI page with auth_required=true must have at least one allowed_role
-Output ONLY valid JSON. No markdown, no explanation.
-"""
+SYSTEM_PROMPT = """You are Stage 4 of an AI compiler pipeline. Your job: cross-validate and fix inconsistencies across all schema layers.
+
+You will receive the Stage 3 schemas (ui_config, api_config, db_schema, auth_config).
+Check and fix:
+1. API fields not present in DB schema → add missing DB columns
+2. UI components referencing API routes that don't exist → add missing endpoints
+3. Auth route_guards missing routes defined in ui_config → add them
+4. DB foreign keys referencing non-existent tables → fix references
+5. Role mismatches across layers → normalize role names
+
+Return the COMPLETE corrected schemas in the EXACT same structure:
+{
+  "ui_config": { ... },
+  "api_config": { ... },
+  "db_schema": { ... },
+  "auth_config": { ... },
+  "refinement_log": ["<description of each fix made>"]
+}
+
+If everything is already consistent, return it unchanged with an empty refinement_log.
+No prose, no markdown."""
 
 
-def refine_schemas(schemas: dict) -> dict:
-    """Stage 4: Deterministic fixes + LLM cross-layer refinement."""
-    from llm_client import chat_completion_json
-
-    schemas = _deterministic_fixes(schemas)
-
-    for attempt in range(3):
-        try:
-            result = chat_completion_json(
-                system_prompt=SYSTEM_PROMPT,
-                user_prompt=f"Schemas:\n{json.dumps(schemas, indent=2)}",
-                temperature=0.05
-            )
-            logger.info("[Stage4] Refinement complete")
-            # Ensure we got all 4 keys back
-            for key in ('ui_config', 'api_config', 'db_schema', 'auth_config'):
-                if key not in result:
-                    result[key] = schemas.get(key, {})
-            return result
-        except Exception as e:
-            logger.warning(f"[Stage4] Attempt {attempt+1} failed: {e}")
-            if attempt == 2:
-                logger.warning("[Stage4] Using deterministic-only fallback")
-                return schemas
-
-
-def _deterministic_fixes(schemas: dict) -> dict:
-    auth_roles = set(schemas.get('auth_config', {}).get('roles', []))
-    # Sync roles from endpoints → auth_config
-    for ep in schemas.get('api_config', {}).get('endpoints', []):
-        for role in ep.get('allowed_roles', []):
-            if role and role not in auth_roles:
-                schemas.setdefault('auth_config', {}).setdefault('roles', []).append(role)
-                auth_roles.add(role)
-    # Ensure id column in every table
-    for table in schemas.get('db_schema', {}).get('tables', []):
-        col_names = [c.get('name') for c in table.get('columns', [])]
-        if 'id' not in col_names:
-            table['columns'].insert(0, {'name': 'id', 'type': 'uuid', 'nullable': False, 'primary_key': True})
-    return schemas
+def run(schemas: dict) -> dict:
+    logger.info('[Stage 4] Starting refinement')
+    result = chat_completion_json(
+        system_prompt=SYSTEM_PROMPT,
+        user_prompt=f"Stage 3 Schemas: {schemas}",
+        temperature=0.05,
+        stage_id=4          # → routes to openai/gpt-oss-20b
+    )
+    result.pop('__model_used__', None)
+    result.pop('__model_label__', None)
+    result.pop('__stage_ms__', None)
+    return result

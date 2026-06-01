@@ -1,77 +1,52 @@
 """
-Stage 6 — Execution Readiness Gate
-====================================
-Checks that the generated output has all required structural parts.
-DATABASE_URL is shown as a warning only — not a hard blocker.
+Stage 6 — Execution Readiness
+Model: openai/gpt-oss-120b (most authoritative final pass)
 """
-import os
 import logging
+from llm_client import chat_completion_json
 
 logger = logging.getLogger(__name__)
 
-# These are the HARD checks — all must pass for is_executable = True
-READINESS_CHECKS = [
-    ('has_ui_pages',      lambda o: len(o.get('schemas',{}).get('ui_config',{}).get('pages',[])) > 0),
-    ('has_api_endpoints', lambda o: len(o.get('schemas',{}).get('api_config',{}).get('endpoints',[])) > 0),
-    ('has_db_tables',     lambda o: len(o.get('schemas',{}).get('db_schema',{}).get('tables',[])) > 0),
-    ('has_auth_strategy', lambda o: bool(o.get('schemas',{}).get('auth_config',{}).get('strategy'))),
-    ('has_auth_roles',    lambda o: len(o.get('schemas',{}).get('auth_config',{}).get('roles',[])) > 0),
-    ('has_blueprint',     lambda o: bool(o.get('blueprint'))),
-    ('has_app_name',      lambda o: bool(o.get('app_name'))),
-]
+SYSTEM_PROMPT = """You are Stage 6 of an AI compiler pipeline: the Execution Readiness checker.
 
-TICK  = '\u2705'
-CROSS = '\u274c'
-WARN  = '\u26a0\ufe0f'
-
-
-def check_execution_readiness(output: dict) -> dict:
-    passed, failed, issues = [], [], []
-
-    for name, fn in READINESS_CHECKS:
-        try:
-            ok = fn(output)
-        except Exception:
-            ok = False
-        (passed if ok else failed).append(name)
-        if not ok:
-            issues.append(f'Failed check: {name}')
-
-    is_executable = len(failed) == 0
-    score = round(len(passed) / len(READINESS_CHECKS) * 100)
-    schemas = output.get('schemas', {})
-
-    # DATABASE_URL — soft warning only, does NOT block executable
-    db_url_set = bool(os.getenv('DATABASE_URL', '').strip())
-    db_line = (
-        f"{TICK} DATABASE_URL: connected"
-        if db_url_set
-        else f"{WARN} DATABASE_URL: not set (add in Render → Environment)"
-    )
-
-    gate_icon = TICK if is_executable else CROSS
-    gate_word = 'PASS' if is_executable else 'FAIL'
-
-    roles = schemas.get('auth_config', {}).get('roles', [])
-    boot_log = [
-        f"{TICK} App: {output.get('app_name', 'Unknown')}",
-        f"{TICK} Auth strategy: {schemas.get('auth_config', {}).get('strategy', 'none')}",
-        f"{TICK} Roles: {', '.join(roles) if roles else 'none'}",
-        f"{TICK} Pages: {len(schemas.get('ui_config', {}).get('pages', []))}",
-        f"{TICK} Endpoints: {len(schemas.get('api_config', {}).get('endpoints', []))}",
-        f"{TICK} DB Tables: {len(schemas.get('db_schema', {}).get('tables', []))}",
-        db_line,
-        f"{gate_icon} Execution Gate: {gate_word}",
+Given the validated schemas, assess whether the output can power a real application.
+Return ONLY valid JSON:
+{
+  "is_executable": true,
+  "issues": [],
+  "preview": {
+    "boot_log": [
+      "\u2705 DB schema loaded: <N> tables",
+      "\u2705 Auth strategy: <strategy>",
+      "\u2705 API routes registered: <N>",
+      "\u2705 UI pages mapped: <N>",
+      "\u2705 Role guards active: <roles>"
     ]
+  },
+  "artifacts": {
+    "openapi_stub": {
+      "openapi": "3.0.0",
+      "info": { "title": "<app_name>", "version": "1.0.0" },
+      "paths": { "<endpoint_path>": { "<method>": { "summary": "<desc>", "security": [] } } }
+    },
+    "db_migration_preview": "<SQL CREATE TABLE statements as a string>"
+  }
+}
 
-    logger.info(f'[Stage6] executable={is_executable} score={score}% failed={failed}')
+If any critical issues make the output non-executable, set `is_executable: false` and list issues.
+No prose, no markdown."""
 
-    return {
-        'is_executable': is_executable,
-        'readiness_score': score,
-        'checks_passed': passed,
-        'checks_failed': failed,
-        'issues': issues,
-        'database_url_set': db_url_set,
-        'preview': {'boot_log': boot_log}
-    }
+
+def run(validated: dict) -> dict:
+    logger.info('[Stage 6] Starting execution readiness check')
+    schemas = validated.get('repaired_schemas', validated)
+    result = chat_completion_json(
+        system_prompt=SYSTEM_PROMPT,
+        user_prompt=f"Validated schemas: {schemas}",
+        temperature=0.05,
+        stage_id=6          # → routes to openai/gpt-oss-120b
+    )
+    result.pop('__model_used__', None)
+    result.pop('__model_label__', None)
+    result.pop('__stage_ms__', None)
+    return result
