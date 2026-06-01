@@ -1,6 +1,5 @@
 """
 Stage 6 — Execution Readiness (deterministic, zero LLM calls)
-Produces boot log simulation + readiness gate purely in Python.
 """
 import logging
 
@@ -8,16 +7,15 @@ logger = logging.getLogger(__name__)
 
 
 def check_execution_readiness(output: dict) -> dict:
-    """Simulate a boot sequence and determine if the output is executable."""
-    schemas = output.get('schemas') or {}
+    schemas   = output.get('schemas') or {}
     if isinstance(schemas, dict) and 'repaired_schemas' in schemas:
         schemas = schemas['repaired_schemas']
 
-    app_name = output.get('app_name', 'App')
-    ui   = schemas.get('ui_config')  or {}
-    api  = schemas.get('api_config') or {}
-    db   = schemas.get('db_schema')  or {}
-    auth = schemas.get('auth_config') or {}
+    app_name  = output.get('app_name', 'App')
+    ui        = schemas.get('ui_config')  or {}
+    api       = schemas.get('api_config') or {}
+    db        = schemas.get('db_schema')  or {}
+    auth      = schemas.get('auth_config') or {}
 
     pages     = ui.get('pages', [])
     endpoints = api.get('endpoints', [])
@@ -26,10 +24,8 @@ def check_execution_readiness(output: dict) -> dict:
     strategy  = auth.get('strategy', 'unknown')
     base_path = api.get('base_path', '/api/v1')
 
-    issues = []
-    boot_log = []
+    issues, boot_log = [], []
 
-    # ── Boot simulation ──────────────────────────────────────────
     boot_log.append(f'[BOOT] Starting {app_name}...')
     boot_log.append(f'[DB]   Connecting to database...')
 
@@ -50,8 +46,8 @@ def check_execution_readiness(output: dict) -> dict:
     boot_log.append(f'[API]  Registering routes on {base_path}...')
     if endpoints:
         for ep in endpoints[:6]:
-            method = ep.get('method', 'GET')
-            path   = ep.get('path', '/?')
+            method    = ep.get('method', 'GET')
+            path      = ep.get('path', '/?')
             auth_flag = ' [auth]' if ep.get('auth_required') else ''
             boot_log.append(f'[API]  {method:<6} {path}{auth_flag}')
         if len(endpoints) > 6:
@@ -66,13 +62,11 @@ def check_execution_readiness(output: dict) -> dict:
         issues.append('No UI pages defined')
 
     is_executable = len(issues) == 0
-    if is_executable:
-        boot_log.append(f'[BOOT] {app_name} is ready ✓')
-    else:
-        boot_log.append(f'[BOOT] ⚠ {len(issues)} issue(s) found')
+    boot_log.append(f'[BOOT] {app_name} is ready ✓' if is_executable else f'[BOOT] ⚠ {len(issues)} issue(s) found')
 
-    return {
-        'is_executable': is_executable,
-        'issues': issues,
-        'preview': {'boot_log': boot_log}
-    }
+    return {'is_executable': is_executable, 'issues': issues, 'preview': {'boot_log': boot_log}}
+
+
+# __init__.py expects run()
+def run(output: dict) -> dict:
+    return check_execution_readiness(output)
