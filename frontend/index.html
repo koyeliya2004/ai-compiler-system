@@ -209,20 +209,12 @@
   </main>
 
   <script>
-    // ── Auto-detect API URL ──────────────────────────────────────────
-    // If served from the FastAPI server itself (Render, production),
-    // use the same origin. If opened as a local file, fall back to localhost.
     function detectApiUrl() {
       const loc = window.location;
-      if (loc.protocol === 'file:') {
-        return 'http://localhost:8000';
-      }
-      // Same origin — the FastAPI server IS the host
+      if (loc.protocol === 'file:') return 'http://localhost:8000';
       return loc.origin;
     }
-
     document.getElementById('apiUrl').value = detectApiUrl();
-    // ─────────────────────────────────────────────────────────────────
 
     let lastResult = null;
     let currentTab = 'output';
@@ -297,21 +289,37 @@
     }
 
     function updateMetrics(data) {
-      const meta = data.output?.metadata || {};
+      // ✅ FIX: read from data.meta and data.runtime (not data.output.metadata)
+      const meta    = data.meta    || {};
+      const runtime = data.runtime || {};
       const schemas = data.output?.schemas || {};
+
       document.getElementById('metricsBar').style.display = 'flex';
+
       const mStatus = document.getElementById('mStatus');
       mStatus.textContent = data.success ? '✅ OK' : '⚠️ Warn';
       mStatus.className = 'metric-value ' + (data.success ? 'success' : 'warn');
-      document.getElementById('mLatency').textContent = meta.total_latency_ms ? `${meta.total_latency_ms}ms` : '—';
-      document.getElementById('mPages').textContent = schemas.ui_config?.pages?.length ?? '—';
-      document.getElementById('mEndpoints').textContent = schemas.api_config?.endpoints?.length ?? '—';
-      document.getElementById('mTables').textContent = schemas.db_schema?.tables?.length ?? '—';
+
+      // Latency from meta.total_ms
+      const ms = meta.total_ms;
+      document.getElementById('mLatency').textContent = ms ? `${ms}ms` : '—';
+
+      document.getElementById('mPages').textContent =
+        schemas.ui_config?.pages?.length ?? '—';
+      document.getElementById('mEndpoints').textContent =
+        schemas.api_config?.endpoints?.length ?? '—';
+      document.getElementById('mTables').textContent =
+        schemas.db_schema?.tables?.length ?? '—';
+
+      // ✅ FIX: executable lives in data.runtime.is_executable
+      const isExec = runtime.is_executable === true;
       const execEl = document.getElementById('mExec');
-      execEl.textContent = meta.is_executable ? '✅ Yes' : '❌ No';
-      execEl.className = 'metric-value ' + (meta.is_executable ? 'success' : 'error');
-      const repairs = Object.values(meta.repair_counts || {}).reduce((a, b) => a + b, 0);
-      document.getElementById('mRepairs').textContent = repairs;
+      execEl.textContent = isExec ? '✅ Yes' : '❌ No';
+      execEl.className = 'metric-value ' + (isExec ? 'success' : 'error');
+
+      // Repairs: count from validation
+      const repairCount = (data.validation?.errors?.length || 0);
+      document.getElementById('mRepairs').textContent = repairCount;
     }
 
     function switchTab(tab, el) {
@@ -327,12 +335,12 @@
       let data;
       switch (tab) {
         case 'output': data = lastResult.output; break;
-        case 'ui': data = lastResult.output?.schemas?.ui_config; break;
-        case 'api': data = lastResult.output?.schemas?.api_config; break;
-        case 'db': data = lastResult.output?.schemas?.db_schema; break;
-        case 'auth': data = lastResult.output?.schemas?.auth_config; break;
+        case 'ui':     data = lastResult.output?.schemas?.ui_config; break;
+        case 'api':    data = lastResult.output?.schemas?.api_config; break;
+        case 'db':     data = lastResult.output?.schemas?.db_schema; break;
+        case 'auth':   data = lastResult.output?.schemas?.auth_config; break;
         case 'validation': renderValidation(lastResult); return;
-        case 'runtime': renderRuntime(lastResult); return;
+        case 'runtime':    renderRuntime(lastResult); return;
       }
       if (!data) { area.innerHTML = '<div class="empty-state"><p>No data for this tab.</p></div>'; return; }
       area.innerHTML = `<button class="copy-btn" onclick="copyJSON()">Copy JSON</button><div class="json-container"><div class="json-tree" id="jsonTree"></div></div>`;
@@ -341,12 +349,13 @@
 
     function renderValidation(data) {
       const area = document.getElementById('outputArea');
-      const v = data.validation || {}; const r = data.runtime || {};
+      const v = data.validation || {};
+      const r = data.runtime || {};
       let html = '<div class="validation-list">';
       html += `<div class="validation-item ${v.valid ? 'ok' : 'fail'}">${v.valid ? '✅' : '❌'} Schema Validation: ${v.valid ? 'PASSED' : 'FAILED'}${v.errors?.length ? '<br>' + v.errors.map(e => `&nbsp;&nbsp;└ ${escHtml(e)}`).join('<br>') : ''}</div>`;
       html += `<div class="validation-item ${r.is_executable ? 'ok' : 'fail'}">${r.is_executable ? '✅' : '❌'} Execution Readiness: ${r.is_executable ? 'READY' : 'NOT READY'}${r.issues?.length ? '<br>' + r.issues.map(i => `&nbsp;&nbsp;└ ${escHtml(i)}`).join('<br>') : ''}</div>`;
       if (v.warnings?.length) html += `<div class="validation-item warn">⚠️ Warnings:<br>${v.warnings.map(w => escHtml(w)).join('<br>')}</div>`;
-      const meta = data.output?.metadata || {};
+      const meta = data.meta || {};
       if (meta.assumptions?.length) html += `<div class="validation-item warn">📌 Assumptions:<br>${meta.assumptions.map(a => escHtml(a)).join('<br>')}</div>`;
       html += '</div>';
       area.innerHTML = html;
@@ -354,15 +363,25 @@
 
     function renderRuntime(data) {
       const area = document.getElementById('outputArea');
-      const r = data.runtime?.preview || {}; const art = data.artifacts || {};
+      const r = data.runtime?.preview || {};
+      const art = data.artifacts || {};
       let html = '<div class="validation-list">';
-      if (r.boot_log) html += `<div class="validation-item ok"><strong>Boot Log:</strong><br>${r.boot_log.map(l => escHtml(l)).join('<br>')}</div>`;
-      if (art.openapi_stub) {
-        html += `<div class="validation-item ok"><strong>OpenAPI Endpoints (${Object.keys(art.openapi_stub.paths || {}).length}):</strong><br>`;
-        Object.entries(art.openapi_stub.paths || {}).forEach(([path, methods]) => { Object.keys(methods).forEach(m => { html += `&nbsp;&nbsp;└ ${m.toUpperCase()} ${escHtml(path)}<br>`; }); });
-        html += '</div>';
+      if (r.boot_log?.length) {
+        html += `<div class="validation-item ok"><strong>Boot Log:</strong><br>${r.boot_log.map(l => escHtml(l)).join('<br>')}</div>`;
       }
-      if (art.db_migration_preview) html += `<div class="validation-item ok"><strong>SQL Migration Preview:</strong><br><pre style="font-size:0.72rem;margin-top:6px;white-space:pre-wrap">${escHtml(art.db_migration_preview)}</pre></div>`;
+      if (art.openapi_stub) {
+        const paths = Object.entries(art.openapi_stub.paths || {});
+        if (paths.length) {
+          html += `<div class="validation-item ok"><strong>OpenAPI Endpoints (${paths.length}):</strong><br>`;
+          paths.forEach(([path, methods]) => {
+            Object.keys(methods).forEach(m => { html += `&nbsp;&nbsp;└ ${m.toUpperCase()} ${escHtml(path)}<br>`; });
+          });
+          html += '</div>';
+        }
+      }
+      if (art.db_migration_preview) {
+        html += `<div class="validation-item ok"><strong>SQL Migration Preview:</strong><br><pre style="font-size:0.72rem;margin-top:6px;white-space:pre-wrap">${escHtml(art.db_migration_preview)}</pre></div>`;
+      }
       html += '</div>';
       area.innerHTML = html;
     }
@@ -393,11 +412,11 @@
       let data;
       switch (currentTab) {
         case 'output': data = lastResult.output; break;
-        case 'ui': data = lastResult.output?.schemas?.ui_config; break;
-        case 'api': data = lastResult.output?.schemas?.api_config; break;
-        case 'db': data = lastResult.output?.schemas?.db_schema; break;
+        case 'ui':   data = lastResult.output?.schemas?.ui_config; break;
+        case 'api':  data = lastResult.output?.schemas?.api_config; break;
+        case 'db':   data = lastResult.output?.schemas?.db_schema; break;
         case 'auth': data = lastResult.output?.schemas?.auth_config; break;
-        default: data = lastResult;
+        default:     data = lastResult;
       }
       navigator.clipboard.writeText(JSON.stringify(data, null, 2));
       const btn = document.querySelector('.copy-btn');
@@ -405,7 +424,9 @@
       setTimeout(() => btn.textContent = 'Copy JSON', 1500);
     }
 
-    function escHtml(str) { return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+    function escHtml(str) {
+      return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
 
     document.addEventListener('keydown', e => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') runCompile(); });
   </script>
