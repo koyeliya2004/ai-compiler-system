@@ -1,0 +1,180 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "SystemDesign",
+  "description": "Stage 2 output — complete app architecture derived from Stage 1 intent",
+  "type": "object",
+  "required": [
+    "app_name",
+    "app_type",
+    "entities",
+    "pages",
+    "api_groups",
+    "roles",
+    "permission_matrix",
+    "business_rules",
+    "data_flows",
+    "design_decisions"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "app_name": { "type": "string", "minLength": 1 },
+    "app_type": { "type": "string" },
+    "entities": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["name", "fields", "relations"],
+        "additionalProperties": false,
+        "properties": {
+          "name": { "type": "string" },
+          "description": { "type": "string" },
+          "fields": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["name", "type", "required"],
+              "additionalProperties": false,
+              "properties": {
+                "name":     { "type": "string" },
+                "type":     { "type": "string", "enum": ["string","integer","float","boolean","datetime","uuid","text","json","enum"] },
+                "required": { "type": "boolean" },
+                "unique":   { "type": "boolean" },
+                "indexed":  { "type": "boolean" },
+                "enum_values": { "type": "array", "items": { "type": "string" } },
+                "default":  {}
+              }
+            }
+          },
+          "relations": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["type", "target"],
+              "additionalProperties": false,
+              "properties": {
+                "type":    { "type": "string", "enum": ["belongs_to","has_many","has_one","many_to_many"] },
+                "target":  { "type": "string" },
+                "through": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "pages": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["name", "path", "access", "components"],
+        "additionalProperties": false,
+        "properties": {
+          "name":        { "type": "string" },
+          "path":        { "type": "string" },
+          "description": { "type": "string" },
+          "access":      { "type": "string", "enum": ["public","authenticated","role_restricted"] },
+          "allowed_roles": { "type": "array", "items": { "type": "string" } },
+          "components":  { "type": "array", "items": { "type": "string" } },
+          "parent_page": { "type": "string" }
+        }
+      }
+    },
+    "api_groups": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["resource", "base_path", "endpoints"],
+        "additionalProperties": false,
+        "properties": {
+          "resource":  { "type": "string" },
+          "base_path": { "type": "string" },
+          "endpoints": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["method", "path", "description", "auth_required", "roles"],
+              "additionalProperties": false,
+              "properties": {
+                "method":       { "type": "string", "enum": ["GET","POST","PUT","PATCH","DELETE"] },
+                "path":         { "type": "string" },
+                "description":  { "type": "string" },
+                "auth_required":{ "type": "boolean" },
+                "roles":        { "type": "array", "items": { "type": "string" } },
+                "request_body": { "type": "object" },
+                "response":     { "type": "object" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "roles": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["name", "description", "capabilities"],
+        "additionalProperties": false,
+        "properties": {
+          "name":         { "type": "string" },
+          "description":  { "type": "string" },
+          "is_default":   { "type": "boolean" },
+          "capabilities": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "permission_matrix": {
+      "type": "object",
+      "description": "Keys are entity names; values are objects mapping role -> list of allowed actions",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": {
+          "type": "array",
+          "items": { "type": "string", "enum": ["create","read","update","delete","list","export"] }
+        }
+      }
+    },
+    "business_rules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "rule", "trigger", "action"],
+        "additionalProperties": false,
+        "properties": {
+          "id":          { "type": "string" },
+          "rule":        { "type": "string" },
+          "trigger":     { "type": "string" },
+          "action":      { "type": "string" },
+          "affects_roles": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "data_flows": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "steps"],
+        "additionalProperties": false,
+        "properties": {
+          "name":  { "type": "string" },
+          "steps": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "design_decisions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["decision", "rationale"],
+        "additionalProperties": false,
+        "properties": {
+          "decision":  { "type": "string" },
+          "rationale": { "type": "string" },
+          "tradeoff":  { "type": "string" }
+        }
+      }
+    }
+  }
+}
