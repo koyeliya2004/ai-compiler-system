@@ -1,35 +1,41 @@
 """
-FastAPI Web Interface
-=====================
-Endpoints:
-  GET  /              - Frontend UI
-  GET  /health        - Health check
-  POST /compile       - Full 6-stage pipeline
-  POST /validate      - Validate a provided output
-  GET  /schema/{name} - Retrieve a schema contract
-  GET  /docs          - Swagger UI
+AI Compiler System — FastAPI Server
+=====================================
+Routes:
+  GET  /          → Frontend UI
+  GET  /health    → Health + config check
+  POST /compile   → Full 6-stage pipeline
+  GET  /docs      → Swagger UI (auto)
 """
-
 import os
+import sys
 import time
 import json
 import traceback
 import logging
 from pathlib import Path
 
+# ━━ Make sure repo root is on sys.path so all imports work ━━
+ROOT = Path(__file__).resolve().parent.parent
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel
-from dotenv import load_dotenv
 
-load_dotenv()
-logging.basicConfig(level=os.getenv('PIPELINE_LOG_LEVEL', 'INFO'))
+logging.basicConfig(
+    level=os.getenv('PIPELINE_LOG_LEVEL', 'INFO'),
+    format='%(asctime)s %(levelname)s %(name)s — %(message)s'
+)
 logger = logging.getLogger(__name__)
+
+FRONTEND = ROOT / 'frontend' / 'index.html'
 
 app = FastAPI(
     title='AI Compiler System',
-    description='Natural language → structured config → validated → executable app generation pipeline',
+    description='Natural language → validated → executable app config. 6-stage pipeline.',
     version='1.0.0'
 )
 
@@ -40,224 +46,180 @@ app.add_middleware(
     allow_headers=['*'],
 )
 
-ROOT = Path(__file__).resolve().parents[1]
-FRONTEND = ROOT / 'frontend' / 'index.html'
 
-
-# ─── Global exception handler so 500s return JSON with the real error ────────
+# ━━ Global catch-all: always return JSON, never a blank 500 ━━
 @app.exception_handler(Exception)
-async def global_exception_handler(request: Request, exc: Exception):
-    tb = traceback.format_exc()
-    logger.error(f'[API] Unhandled exception: {exc}\n{tb}')
-    return JSONResponse(
-        status_code=500,
-        content={
-            'error': type(exc).__name__,
-            'detail': str(exc),
-            'hint': 'Check that GROQ_API_KEY is set in your Render environment variables.'
-        }
-    )
+async def _global_error(request: Request, exc: Exception):
+    logger.error(f'Unhandled: {exc}\n{traceback.format_exc()}')
+    return JSONResponse(status_code=500, content={
+        'error': type(exc).__name__,
+        'detail': str(exc),
+        'tip': 'Check /health to verify GROQ_API_KEY is set.'
+    })
 
 
 class CompileRequest(BaseModel):
     prompt: str
 
-    class Config:
-        json_schema_extra = {
-            'example': {
-                'prompt': 'Build a CRM with login, contacts, dashboard, role-based access, and premium plan with payments.'
-            }
+    model_config = {
+        'json_schema_extra': {
+            'example': {'prompt': 'Build a CRM with login, contacts, dashboard, role-based access, and premium payments.'}
         }
+    }
 
 
-class ValidateRequest(BaseModel):
-    output: dict
-
-
-# ─── Root ────────────────────────────────────────────────────────────────────
+# ━━ GET / — serve frontend ━━
 @app.get('/', response_class=HTMLResponse, include_in_schema=False)
 def root():
     if FRONTEND.exists():
-        return HTMLResponse(content=FRONTEND.read_text(), status_code=200)
-    return HTMLResponse(content="""
-<!DOCTYPE html><html><head><title>AI Compiler System</title>
-<style>body{font-family:sans-serif;background:#0d1117;color:#e6edf3;
-  display:flex;flex-direction:column;align-items:center;justify-content:center;
-  min-height:100vh;gap:20px;} a{color:#58a6ff;} </style></head>
-<body><h1>AI Compiler System</h1>
-<p>API is running. <a href="/docs">Open Swagger UI</a> | <a href="/health">Health Check</a></p>
-</body></html>""", status_code=200)
+        return HTMLResponse(content=FRONTEND.read_text(encoding='utf-8'))
+    return HTMLResponse(content=(
+        '<html><body style="font:16px sans-serif;padding:40px;">'
+        '<h2>AI Compiler System</h2>'
+        '<p>API is running. <a href="/docs">Swagger Docs</a> | <a href="/health">Health</a></p>'
+        '</body></html>'
+    ))
 
 
-# ─── Health ───────────────────────────────────────────────────────────────────
+# ━━ GET /health ━━
 @app.get('/health', tags=['System'])
 def health():
-    api_key_set = bool(os.getenv('GROQ_API_KEY'))
+    key_set = bool(os.getenv('GROQ_API_KEY', '').strip())
     return {
         'status': 'ok',
-        'service': 'ai-compiler-system',
-        'version': '1.0.0',
-        'provider': os.getenv('LLM_PROVIDER', 'groq'),
+        'provider': 'groq',
         'model': os.getenv('LLM_MODEL', 'llama-3.3-70b-versatile'),
-        'groq_api_key_set': api_key_set,
-        'warning': None if api_key_set else 'GROQ_API_KEY is NOT set — /compile will fail!'
+        'groq_api_key_set': key_set,
+        'warning': None if key_set else '⚠️ GROQ_API_KEY not set — /compile will fail. Add it in Render → Environment.'
     }
 
 
-# ─── Schema retrieval ─────────────────────────────────────────────────────────
-@app.get('/schema/{name}', tags=['Schemas'])
-def get_schema(name: str):
-    schema_map = {
-        'intent': 'intent_schema.json',
-        'blueprint': 'app_blueprint_schema.json',
-        'output': 'output_schema.json'
-    }
-    if name not in schema_map:
-        raise HTTPException(status_code=404, detail=f"Schema '{name}' not found. Available: {list(schema_map.keys())}")
-    schema_path = ROOT / 'schemas' / schema_map[name]
-    if not schema_path.exists():
-        raise HTTPException(status_code=404, detail=f"Schema file missing: {schema_map[name]}")
-    return json.loads(schema_path.read_text())
-
-
-# ─── Validate ─────────────────────────────────────────────────────────────────
-@app.post('/validate', tags=['Pipeline'])
-def validate_output(req: ValidateRequest):
-    from pipeline.stage5_validation_repair import validate_pipeline_output
-    return validate_pipeline_output(req.output)
-
-
-# ─── Compile — full 6-stage pipeline ─────────────────────────────────────────
+# ━━ POST /compile — full pipeline ━━
 @app.post('/compile', tags=['Pipeline'])
 def compile_app(req: CompileRequest):
-    """
-    Full 6-stage pipeline: NL prompt → validated, executable app config.
-    """
-    # Check API key early — give a clear error instead of a cryptic 500
-    if not os.getenv('GROQ_API_KEY') and not os.getenv('OPENAI_API_KEY'):
-        raise HTTPException(
-            status_code=503,
-            detail={
-                'error': 'No LLM API key configured',
-                'fix': 'Set GROQ_API_KEY in your Render environment variables.',
-                'get_key': 'https://console.groq.com (free)'
-            }
-        )
+    # Early guard — clear error before wasting LLM calls
+    if not os.getenv('GROQ_API_KEY', '').strip():
+        raise HTTPException(status_code=503, detail={
+            'error': 'GROQ_API_KEY not configured',
+            'fix': 'Go to Render dashboard → your service → Environment tab → add GROQ_API_KEY',
+            'get_key': 'https://console.groq.com (free)'
+        })
 
-    # Lazy imports — prevents startup crash if a stage has a syntax error
-    from pipeline.stage1_intent_extraction import extract_intent
-    from pipeline.stage2_system_design import design_system
-    from pipeline.stage3_schema_generation import generate_schemas
-    from pipeline.stage4_refinement import refine_schemas
-    from pipeline.stage5_validation_repair import validate_pipeline_output, repair_pipeline_output
-    from pipeline.stage6_execution import check_execution_readiness
-    from runtime.minimal_runtime import generate_openapi_stub, generate_db_migration_stub
+    if not req.prompt or not req.prompt.strip():
+        raise HTTPException(status_code=422, detail='prompt cannot be empty')
 
     started = time.time()
-    stage_latencies = {}
-    repair_counts = {f'stage{i}': 0 for i in range(1, 7)}
+    timings = {}
 
-    logger.info(f'[API] /compile → {req.prompt[:80]}')
-
+    # ─ Stage 1: Intent Extraction ─────────────────────────────────
     try:
+        from pipeline.stage1_intent_extraction import extract_intent
         t = time.time()
         intent = extract_intent(req.prompt)
-        stage_latencies['stage1_ms'] = round((time.time() - t) * 1000, 2)
-        logger.info(f'[API] Stage 1 done in {stage_latencies["stage1_ms"]}ms')
+        timings['stage1_ms'] = round((time.time() - t) * 1000)
+        logger.info(f'Stage1 OK — {timings["stage1_ms"]}ms')
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f'Stage 1 (Intent) failed: {e}')
+        logger.error(f'Stage1 FAIL: {e}')
+        raise HTTPException(status_code=500, detail=f'Stage 1 (Intent Extraction) failed: {e}')
 
+    # ─ Stage 2: System Design ─────────────────────────────────
     try:
+        from pipeline.stage2_system_design import design_system
         t = time.time()
         blueprint = design_system(intent)
-        stage_latencies['stage2_ms'] = round((time.time() - t) * 1000, 2)
-        logger.info(f'[API] Stage 2 done in {stage_latencies["stage2_ms"]}ms')
+        timings['stage2_ms'] = round((time.time() - t) * 1000)
+        logger.info(f'Stage2 OK — {timings["stage2_ms"]}ms')
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f'Stage 2 (Design) failed: {e}')
+        logger.error(f'Stage2 FAIL: {e}')
+        raise HTTPException(status_code=500, detail=f'Stage 2 (System Design) failed: {e}')
 
+    # ─ Stage 3: Schema Generation ─────────────────────────────
     try:
+        from pipeline.stage3_schema_generation import generate_schemas
         t = time.time()
         schemas = generate_schemas(blueprint)
-        stage_latencies['stage3_ms'] = round((time.time() - t) * 1000, 2)
-        logger.info(f'[API] Stage 3 done in {stage_latencies["stage3_ms"]}ms')
+        timings['stage3_ms'] = round((time.time() - t) * 1000)
+        logger.info(f'Stage3 OK — {timings["stage3_ms"]}ms')
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f'Stage 3 (Schemas) failed: {e}')
+        logger.error(f'Stage3 FAIL: {e}')
+        raise HTTPException(status_code=500, detail=f'Stage 3 (Schema Generation) failed: {e}')
 
+    # ─ Stage 4: Refinement (non-fatal fallback) ──────────────────
     try:
+        from pipeline.stage4_refinement import refine_schemas
         t = time.time()
         refined = refine_schemas(schemas)
-        stage_latencies['stage4_ms'] = round((time.time() - t) * 1000, 2)
-        logger.info(f'[API] Stage 4 done in {stage_latencies["stage4_ms"]}ms')
+        timings['stage4_ms'] = round((time.time() - t) * 1000)
+        logger.info(f'Stage4 OK — {timings["stage4_ms"]}ms')
     except Exception as e:
-        logger.warning(f'[API] Stage 4 failed (using unrefined schemas): {e}')
-        refined = schemas  # fallback: use unrefinened schemas
-        stage_latencies['stage4_ms'] = 0
+        logger.warning(f'Stage4 WARN (using unrefined): {e}')
+        refined = schemas
+        timings['stage4_ms'] = 0
 
-    final_output = {
-        'app_name': blueprint.get('app_name', intent.get('app_name', 'Generated App')),
+    # ─ Build output object ──────────────────────────────────────
+    app_name = blueprint.get('app_name') or intent.get('app_name', 'Generated App')
+    output = {
+        'app_name': app_name,
         'pipeline_version': '1.0.0',
-        'intent': {
-            'app_type': intent.get('app_type', 'Other'),
-            'features_count': len(intent.get('features', [])),
-            'entities_count': len(intent.get('entities', [])),
-            'roles': [r.get('name') for r in intent.get('roles', [])],
-        },
         'intent_raw': intent,
         'blueprint': blueprint,
         'schemas': refined,
-        'metadata': {
-            'total_latency_ms': 0,
-            'stage_latencies': stage_latencies,
-            'repair_counts': repair_counts,
-            'assumptions': intent.get('assumptions', []),
-            'warnings': [],
-            'is_executable': False
-        }
     }
 
+    # ─ Stage 5: Validation + Repair ───────────────────────────
     try:
+        from pipeline.stage5_validation_repair import validate_pipeline_output, repair_pipeline_output
         t = time.time()
-        validation = validate_pipeline_output(final_output)
-        stage_latencies['stage5_ms'] = round((time.time() - t) * 1000, 2)
+        validation = validate_pipeline_output(output)
         if not validation['valid']:
-            logger.warning(f"[API] Stage 5: {len(validation['errors'])} errors — repairing...")
-            t = time.time()
-            final_output = repair_pipeline_output(final_output)
-            stage_latencies['stage5_repair_ms'] = round((time.time() - t) * 1000, 2)
-            repair_counts['stage5'] += 1
-            validation = validate_pipeline_output(final_output)
+            output = repair_pipeline_output(output)
+            validation = validate_pipeline_output(output)
+        timings['stage5_ms'] = round((time.time() - t) * 1000)
+        logger.info(f'Stage5 OK valid={validation["valid"]} — {timings["stage5_ms"]}ms')
     except Exception as e:
-        logger.warning(f'[API] Stage 5 failed: {e}')
+        logger.warning(f'Stage5 WARN: {e}')
         validation = {'valid': False, 'errors': [str(e)], 'warnings': []}
+        timings['stage5_ms'] = 0
 
+    # ─ Stage 6: Execution Readiness ──────────────────────────
     try:
+        from pipeline.stage6_execution import check_execution_readiness
         t = time.time()
-        runtime = check_execution_readiness(final_output)
-        stage_latencies['stage6_ms'] = round((time.time() - t) * 1000, 2)
+        runtime = check_execution_readiness(output)
+        timings['stage6_ms'] = round((time.time() - t) * 1000)
+        logger.info(f'Stage6 OK executable={runtime["is_executable"]} — {timings["stage6_ms"]}ms')
     except Exception as e:
-        logger.warning(f'[API] Stage 6 failed: {e}')
+        logger.warning(f'Stage6 WARN: {e}')
         runtime = {'is_executable': False, 'issues': [str(e)], 'preview': {'boot_log': []}}
+        timings['stage6_ms'] = 0
 
+    # ─ Runtime artifacts ─────────────────────────────────────
     try:
-        openapi_stub = generate_openapi_stub(final_output)
-        db_migration = generate_db_migration_stub(final_output)
+        from runtime.minimal_runtime import generate_openapi_stub, generate_db_migration_stub
+        openapi_stub = generate_openapi_stub(output)
+        db_migration = generate_db_migration_stub(output)
     except Exception as e:
-        logger.warning(f'[API] Runtime artifact generation failed: {e}')
+        logger.warning(f'Runtime artifacts WARN: {e}')
         openapi_stub = {}
         db_migration = ''
 
-    final_output['metadata']['is_executable'] = runtime.get('is_executable', False)
-    final_output['metadata']['total_latency_ms'] = round((time.time() - started) * 1000, 2)
-    final_output['metadata']['stage_latencies'] = stage_latencies
+    total_ms = round((time.time() - started) * 1000)
+    logger.info(f'/compile done — {total_ms}ms, executable={runtime.get("is_executable")}')
 
     return {
-        'success': validation.get('valid', False) and runtime.get('is_executable', False),
-        'app_name': final_output['app_name'],
+        'success': validation.get('valid', False),
+        'app_name': app_name,
         'validation': validation,
         'runtime': runtime,
         'artifacts': {
             'openapi_stub': openapi_stub,
-            'db_migration_preview': (db_migration[:1000] + '...') if len(db_migration) > 1000 else db_migration
+            'db_migration_preview': db_migration[:2000] if db_migration else ''
         },
-        'output': final_output,
+        'output': output,
+        'meta': {
+            'total_ms': total_ms,
+            'stage_timings': timings,
+            'assumptions': intent.get('assumptions', []),
+            'clarifications': intent.get('clarifications_needed', [])
+        }
     }
