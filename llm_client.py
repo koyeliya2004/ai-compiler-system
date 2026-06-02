@@ -1,17 +1,16 @@
 """
 LLM Client -- Multi-Model Router
 ================================
-Each pipeline stage is routed to the best-fit model:
+Stage routing (all via Groq free tier):
 
-  Stage 1  Intent Extraction    ->  openai/gpt-oss-120b
-  Stage 2  System Design        ->  qwen/qwen3-32b
-  Stage 3  Schema Generation    ->  meta-llama/llama-4-scout-17b-16e-instruct
-  Stage 4  Refinement           ->  openai/gpt-oss-20b
-  Stage 5  Validation & Repair  ->  llama-3.1-8b-instant
-  Stage 6  Execution            ->  openai/gpt-oss-120b
+  Stage 1  Intent Extraction   ->  llama-3.3-70b-versatile
+  Stage 2  System Design       ->  llama-3.3-70b-versatile
+  Stage 3  Schema Generation   ->  llama-3.3-70b-versatile
+  Stage 4  Refinement          ->  deterministic (no LLM)
+  Stage 5  Validation & Repair ->  deterministic (no LLM)
+  Stage 6  Execution           ->  deterministic (no LLM)
 
-All models called via Groq (single API key).
-Fallback: if primary model fails, tries secondary automatically.
+Fallback: gemma2-9b-it
 """
 import os
 import json
@@ -21,23 +20,20 @@ import time
 
 logger = logging.getLogger(__name__)
 
-# Stage -> [primary_model, fallback_model]
+# All valid Groq model IDs as of 2025
 STAGE_MODEL_MAP = {
-    1: ["openai/gpt-oss-120b",                      "llama-3.3-70b-versatile"],
-    2: ["qwen/qwen3-32b",                            "openai/gpt-oss-20b"],
-    3: ["meta-llama/llama-4-scout-17b-16e-instruct", "qwen/qwen3-32b"],
-    4: ["openai/gpt-oss-20b",                        "qwen/qwen3-32b"],
-    5: ["llama-3.1-8b-instant",                      "openai/gpt-oss-20b"],
-    6: ["openai/gpt-oss-120b",                       "llama-3.3-70b-versatile"],
+    1: ["llama-3.3-70b-versatile",  "gemma2-9b-it"],
+    2: ["llama-3.3-70b-versatile",  "gemma2-9b-it"],
+    3: ["llama-3.3-70b-versatile",  "gemma2-9b-it"],
+    4: ["llama-3.3-70b-versatile",  "gemma2-9b-it"],
+    5: ["llama-3.1-8b-instant",     "gemma2-9b-it"],
+    6: ["llama-3.3-70b-versatile",  "gemma2-9b-it"],
 }
 
 MODEL_LABELS = {
-    "openai/gpt-oss-120b":                      "GPT-OSS 120B",
-    "qwen/qwen3-32b":                           "Qwen3 32B",
-    "meta-llama/llama-4-scout-17b-16e-instruct": "Llama-4 Scout 17B",
-    "openai/gpt-oss-20b":                       "GPT-OSS 20B",
-    "llama-3.1-8b-instant":                     "Llama 3.1 8B",
-    "llama-3.3-70b-versatile":                  "Llama 3.3 70B",
+    "llama-3.3-70b-versatile": "Llama 3.3 70B",
+    "llama-3.1-8b-instant":    "Llama 3.1 8B",
+    "gemma2-9b-it":            "Gemma2 9B",
 }
 
 
@@ -54,7 +50,6 @@ def _get_groq_client():
 
 
 def _call_model(client, model, system_prompt, user_prompt, temperature):
-    """Single model call, returns raw string."""
     response = client.chat.completions.create(
         model=model,
         temperature=temperature,
@@ -68,22 +63,18 @@ def _call_model(client, model, system_prompt, user_prompt, temperature):
 
 
 def _parse_json(raw):
-    """Three-layer JSON extraction."""
     if not raw:
         raise ValueError('Empty response')
-    # Layer 1: direct parse
     try:
         return json.loads(raw)
     except json.JSONDecodeError:
         pass
-    # Layer 2: strip markdown fences
     m = re.search(r'```(?:json)?\s*([\s\S]+?)```', raw)
     if m:
         try:
             return json.loads(m.group(1).strip())
         except json.JSONDecodeError:
             pass
-    # Layer 3: first { ... } block
     m = re.search(r'(\{[\s\S]+\})', raw)
     if m:
         try:
@@ -93,28 +84,12 @@ def _parse_json(raw):
     raise ValueError('Cannot parse JSON. First 300 chars: ' + raw[:300])
 
 
-def chat_completion_json(
-    system_prompt,
-    user_prompt,
-    temperature=0.1,
-    stage_id=0
-):
-    """
-    Route the call to the right model for this stage.
-    Falls back to secondary model if primary fails.
-    Returns parsed dict.
-    """
+def chat_completion_json(system_prompt, user_prompt, temperature=0.1, stage_id=0):
     client = _get_groq_client()
-
-    if stage_id in STAGE_MODEL_MAP:
-        models = STAGE_MODEL_MAP[stage_id]
-        stage_label = 'Stage ' + str(stage_id)
-    else:
-        default_model = os.getenv('LLM_MODEL', 'llama-3.3-70b-versatile')
-        models = [default_model, 'llama-3.3-70b-versatile']
-        stage_label = 'Stage ' + str(stage_id) + ' (unrouted)'
-
+    models = STAGE_MODEL_MAP.get(stage_id, ["llama-3.3-70b-versatile", "gemma2-9b-it"])
+    stage_label = f'Stage {stage_id}'
     last_error = None
+
     for attempt, model in enumerate(models):
         label = MODEL_LABELS.get(model, model)
         try:
@@ -130,8 +105,6 @@ def chat_completion_json(
             return result
         except Exception as e:
             last_error = e
-            logger.warning('[LLM] %s FAILED: %s -> %s. Trying fallback...', stage_label, label, str(e))
+            logger.warning('[LLM] %s FAILED: %s -> %s', stage_label, label, str(e))
 
-    raise RuntimeError(
-        stage_label + ': all models failed. Last error: ' + str(last_error)
-    )
+    raise RuntimeError(f'{stage_label}: all models failed. Last error: {last_error}')
